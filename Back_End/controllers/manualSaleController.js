@@ -1,527 +1,500 @@
 // controllers/manualSaleController.js
-const mysql = require('mysql2/promise');
+const db = require('../config/db');
 
-// Configuración de la base de datos
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'frank_furt',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
+/**
+ * Obtiene todas las mesas con su estado actual
+ * @route GET /api/manualSale/mesas
+ */
+const getMesas = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        idMesa, 
+        numero, 
+        estado,
+        idSede
+      FROM mesa 
+      WHERE idSede = 1
+      ORDER BY 
+        CASE estado
+          WHEN 'disponible' THEN 1
+          WHEN 'ocupada' THEN 2
+          WHEN 'limpieza' THEN 3
+        END,
+        numero
+    `;
+    const [mesas] = await db.query(query);
+    res.json(mesas);
+  } catch (error) {
+    console.error('Error al obtener mesas:', error);
+    res.status(500).json({ 
+      error: 'Error al cargar las mesas',
+      details: error.message 
+    });
+  }
 };
 
-const pool = mysql.createPool(dbConfig);
+/**
+ * Obtiene todos los productos disponibles con información de stock
+ * @route GET /api/manualSale/productos
+ */
+const getProductos = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        p.idProducto,
+        p.nombre,
+        p.precio,
+        p.descripcion,
+        p.disponible,
+        c.nombre as categoria,
+        c.id as idCategoria,
+        COALESCE(i.stockDisponible, 0) as stock,
+        p.imagen_url
+      FROM producto p
+      INNER JOIN categoria c ON p.idCategoria = c.id
+      LEFT JOIN inventario i ON p.idProducto = i.idProducto AND i.idSede = 1
+      WHERE p.disponible = 1 AND c.activo = 1
+      ORDER BY c.nombre, p.nombre
+    `;
+    const [productos] = await db.query(query);
+    res.json(productos);
+  } catch (error) {
+    console.error('Error al obtener productos:', error);
+    res.status(500).json({ 
+      error: 'Error al cargar los productos',
+      details: error.message 
+    });
+  }
+};
 
-const manualSaleController = {
+/**
+ * Obtiene todas las categorías activas
+ * @route GET /api/manualSale/categorias
+ */
+const getCategorias = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        c.id, 
+        c.nombre, 
+        c.descripcion,
+        COUNT(p.idProducto) as cantidadProductos
+      FROM categoria c
+      LEFT JOIN producto p ON c.id = p.idCategoria AND p.disponible = 1
+      WHERE c.activo = 1 
+      GROUP BY c.id, c.nombre, c.descripcion
+      HAVING cantidadProductos > 0
+      ORDER BY c.nombre
+    `;
+    const [categorias] = await db.query(query);
+    res.json(categorias);
+  } catch (error) {
+    console.error('Error al obtener categorías:', error);
+    res.status(500).json({ 
+      error: 'Error al cargar las categorías',
+      details: error.message 
+    });
+  }
+};
 
-  // Crear un pedido manual
-  crearPedidoManual: async (req, res) => {
-    const connection = await pool.getConnection();
+/**
+ * Registra una nueva venta en mesa usando procedimiento almacenado
+ * @route POST /api/manualSale/registrar
+ * @body { idMesa, idSede, productos: [{ idProducto, cantidad }] }
+ */
+const registrarVenta = async (req, res) => {
+  const connection = await db.getConnection();
+  
+  try {
+    const { idMesa, idSede = 1, productos } = req.body;
+
+    // Validaciones de entrada
+    if (!idMesa) {
+      return res.status(400).json({ 
+        error: 'Debe seleccionar una mesa',
+        code: 'MESA_REQUIRED'
+      });
+    }
+
+    if (!productos || productos.length === 0) {
+      return res.status(400).json({ 
+        error: 'El carrito está vacío',
+        code: 'CART_EMPTY'
+      });
+    }
+
+    // Validar formato de productos
+    const productosValidos = productos.every(p => 
+      p.idProducto && 
+      p.cantidad && 
+      Number.isInteger(p.cantidad) && 
+      p.cantidad > 0
+    );
+
+    if (!productosValidos) {
+      return res.status(400).json({ 
+        error: 'Formato de productos inválido. Verifique cantidad y ID',
+        code: 'INVALID_PRODUCTS'
+      });
+    }
+
+    // Verificar stock antes de procesar
+    const stockQuery = `
+      SELECT 
+        i.idProducto,
+        p.nombre,
+        i.stockDisponible
+      FROM inventario i
+      INNER JOIN producto p ON i.idProducto = p.idProducto
+      WHERE i.idSede = ? AND i.idProducto IN (?)
+    `;
     
-    try {
-      await connection.beginTransaction();
+    const productosIds = productos.map(p => p.idProducto);
+    const [stockData] = await connection.query(stockQuery, [idSede, productosIds]);
+
+    // Validar stock disponible
+    for (const producto of productos) {
+      const stock = stockData.find(s => s.idProducto === producto.idProducto);
       
-      const { idMesa, productos } = req.body;
-      
-      // Validaciones básicas
-      if (!idMesa || !productos || productos.length === 0) {
-        await connection.rollback();
-        return res.status(400).json({ 
-          error: 'Datos incompletos. Se requiere mesa y productos.' 
+      if (!stock) {
+        return res.status(400).json({
+          error: `Producto con ID ${producto.idProducto} no encontrado en inventario`,
+          code: 'PRODUCT_NOT_FOUND'
         });
       }
 
-      // Verificar que la mesa existe
-      const [mesaResult] = await connection.execute(
-        'SELECT id, numero, estado FROM mesas WHERE id = ?',
-        [idMesa]
-      );
-
-      if (mesaResult.length === 0) {
-        await connection.rollback();
-        return res.status(400).json({ 
-          error: 'Mesa no encontrada' 
+      if (stock.stockDisponible < producto.cantidad) {
+        return res.status(400).json({
+          error: `Stock insuficiente para ${stock.nombre}. Disponible: ${stock.stockDisponible}, Solicitado: ${producto.cantidad}`,
+          code: 'INSUFFICIENT_STOCK',
+          producto: stock.nombre,
+          disponible: stock.stockDisponible,
+          solicitado: producto.cantidad
         });
       }
-
-      // Verificar que todos los productos existen y calcular el total
-      let totalPedido = 0;
-      const productosValidos = [];
-
-      for (const producto of productos) {
-        const [productoResult] = await connection.execute(
-          'SELECT idProducto, nombre, precio FROM productos WHERE idProducto = ? AND estado = "activo"',
-          [producto.idProducto]
-        );
-
-        if (productoResult.length === 0) {
-          await connection.rollback();
-          return res.status(400).json({ 
-            error: `Producto con ID ${producto.idProducto} no encontrado o inactivo` 
-          });
-        }
-
-        if (producto.cantidad <= 0) {
-          await connection.rollback();
-          return res.status(400).json({ 
-            error: `Cantidad inválida para el producto ${producto.idProducto}` 
-          });
-        }
-
-        const productoDB = productoResult[0];
-        const subtotal = productoDB.precio * producto.cantidad;
-        totalPedido += subtotal;
-
-        productosValidos.push({
-          idProducto: producto.idProducto,
-          nombre: productoDB.nombre,
-          precio: productoDB.precio,
-          cantidad: producto.cantidad,
-          subtotal: subtotal
-        });
-      }
-
-      // Crear el pedido principal
-      const [pedidoResult] = await connection.execute(
-        `INSERT INTO pedidos (idMesa, total, estado, fechaCreacion, tipo) 
-         VALUES (?, ?, 'pendiente', NOW(), 'manual')`,
-        [idMesa, totalPedido]
-      );
-
-      const idPedido = pedidoResult.insertId;
-
-      // Insertar los detalles del pedido
-      for (const producto of productosValidos) {
-        await connection.execute(
-          `INSERT INTO detalle_pedidos (idPedido, idProducto, cantidad, precioUnitario, subtotal) 
-           VALUES (?, ?, ?, ?, ?)`,
-          [
-            idPedido, 
-            producto.idProducto, 
-            producto.cantidad, 
-            producto.precio, 
-            producto.subtotal
-          ]
-        );
-      }
-
-      // Actualizar el estado de la mesa
-      await connection.execute(
-        'UPDATE mesas SET estado = "ocupada" WHERE id = ?',
-        [idMesa]
-      );
-
-      await connection.commit();
-
-      res.status(201).json({
-        success: true,
-        message: 'Pedido creado exitosamente',
-        data: {
-          idPedido: idPedido,
-          idMesa: idMesa,
-          numeroMesa: mesaResult[0].numero,
-          total: totalPedido,
-          productos: productosValidos,
-          estado: 'pendiente',
-          fechaCreacion: new Date().toISOString()
-        }
-      });
-
-    } catch (error) {
-      await connection.rollback();
-      console.error('Error al crear pedido manual:', error);
-      res.status(500).json({ 
-        error: 'Error interno del servidor al crear el pedido' 
-      });
-    } finally {
-      connection.release();
     }
-  },
 
-  // Obtener todos los pedidos pendientes
-  obtenerPedidosPendientes: async (req, res) => {
-    try {
-      const [pedidos] = await pool.execute(`
-        SELECT 
-          p.idPedido,
-          p.idMesa,
-          m.numero as numeroMesa,
-          p.total,
-          p.estado,
-          p.fechaCreacion,
-          GROUP_CONCAT(
-            CONCAT(dp.cantidad, 'x ', pr.nombre) 
-            ORDER BY dp.id SEPARATOR ', '
-          ) as productos
-        FROM pedidos p
-        JOIN mesas m ON p.idMesa = m.id
-        JOIN detalle_pedidos dp ON p.idPedido = dp.idPedido
-        JOIN productos pr ON dp.idProducto = pr.idProducto
-        WHERE p.estado = 'pendiente' AND p.tipo = 'manual'
-        GROUP BY p.idPedido, p.idMesa, m.numero, p.total, p.estado, p.fechaCreacion
-        ORDER BY p.fechaCreacion DESC
-      `);
+    // Convertir productos a JSON string
+    const productosJson = JSON.stringify(productos);
 
-      res.json({
-        success: true,
-        data: pedidos,
-        total: pedidos.length
-      });
+    // Llamar al procedimiento almacenado
+    const query = 'CALL sp_registrar_venta_mesa(?, ?, ?)';
+    const [result] = await connection.query(query, [idMesa, idSede, productosJson]);
 
-    } catch (error) {
-      console.error('Error al obtener pedidos pendientes:', error);
-      res.status(500).json({ 
-        error: 'Error al obtener pedidos pendientes' 
-      });
+    // Extraer resultado del procedimiento
+    const pedidoCreado = result[0]?.[0];
+
+    if (!pedidoCreado || !pedidoCreado.idPedido) {
+      throw new Error('No se pudo crear el pedido');
     }
-  },
 
-  // Obtener el detalle de un pedido específico
-  obtenerDetallePedido: async (req, res) => {
-    try {
-      const { idPedido } = req.params;
-
-      // Validar que el ID sea un número
-      if (isNaN(idPedido)) {
-        return res.status(400).json({ 
-          error: 'ID de pedido inválido' 
-        });
+    res.status(201).json({
+      success: true,
+      message: 'Pedido registrado exitosamente',
+      data: {
+        idPedido: pedidoCreado.idPedido,
+        total: pedidoCreado.total,
+        idMesa: idMesa,
+        cantidadProductos: productos.length,
+        cantidadItems: productos.reduce((sum, p) => sum + p.cantidad, 0)
       }
+    });
 
-      const [pedidoResult] = await pool.execute(`
-        SELECT 
-          p.idPedido,
-          p.idMesa,
-          m.numero as numeroMesa,
-          p.total,
-          p.estado,
-          p.fechaCreacion,
-          p.fechaPago,
-          p.tipo
-        FROM pedidos p
-        JOIN mesas m ON p.idMesa = m.id
-        WHERE p.idPedido = ? AND p.tipo = 'manual'
-      `, [idPedido]);
-
-      if (pedidoResult.length === 0) {
-        return res.status(404).json({ 
-          error: 'Pedido no encontrado' 
-        });
-      }
-
-      const [detalleResult] = await pool.execute(`
-        SELECT 
-          dp.cantidad,
-          dp.precioUnitario,
-          dp.subtotal,
-          pr.idProducto,
-          pr.nombre as nombreProducto,
-          pr.categoria
-        FROM detalle_pedidos dp
-        JOIN productos pr ON dp.idProducto = pr.idProducto
-        WHERE dp.idPedido = ?
-        ORDER BY dp.id
-      `, [idPedido]);
-
-      res.json({
-        success: true,
-        data: {
-          ...pedidoResult[0],
-          productos: detalleResult
-        }
-      });
-
-    } catch (error) {
-      console.error('Error al obtener detalle del pedido:', error);
-      res.status(500).json({ 
-        error: 'Error al obtener detalle del pedido' 
-      });
-    }
-  },
-
-  // Marcar un pedido como pagado
-  marcarComoPagado: async (req, res) => {
-    const connection = await pool.getConnection();
+  } catch (error) {
+    console.error('Error al registrar venta:', error);
     
-    try {
-      await connection.beginTransaction();
-      
-      const { idPedido } = req.params;
-
-      // Validar que el ID sea un número
-      if (isNaN(idPedido)) {
-        await connection.rollback();
-        return res.status(400).json({ 
-          error: 'ID de pedido inválido' 
-        });
-      }
-
-      // Verificar que el pedido existe y está pendiente
-      const [pedidoResult] = await connection.execute(
-        'SELECT idPedido, idMesa, estado, total FROM pedidos WHERE idPedido = ? AND tipo = "manual"',
-        [idPedido]
-      );
-
-      if (pedidoResult.length === 0) {
-        await connection.rollback();
-        return res.status(404).json({ 
-          error: 'Pedido no encontrado' 
-        });
-      }
-
-      const pedido = pedidoResult[0];
-
-      if (pedido.estado !== 'pendiente') {
-        await connection.rollback();
-        return res.status(400).json({ 
-          error: `No se puede marcar como pagado un pedido con estado: ${pedido.estado}` 
-        });
-      }
-
-      // Actualizar el estado del pedido
-      await connection.execute(
-        'UPDATE pedidos SET estado = "pagado", fechaPago = NOW() WHERE idPedido = ?',
-        [idPedido]
-      );
-
-      // Liberar la mesa
-      await connection.execute(
-        'UPDATE mesas SET estado = "disponible" WHERE id = ?',
-        [pedido.idMesa]
-      );
-
-      await connection.commit();
-
-      res.json({
-        success: true,
-        message: 'Pedido marcado como pagado exitosamente',
-        data: {
-          idPedido: parseInt(idPedido),
-          total: pedido.total,
-          estadoAnterior: 'pendiente',
-          estadoNuevo: 'pagado'
-        }
+    // Manejar errores específicos del procedimiento
+    if (error.message.includes('Mesa no disponible')) {
+      return res.status(409).json({ 
+        error: 'La mesa seleccionada no está disponible',
+        code: 'MESA_NO_DISPONIBLE'
       });
-
-    } catch (error) {
-      await connection.rollback();
-      console.error('Error al marcar pedido como pagado:', error);
-      res.status(500).json({ 
-        error: 'Error interno del servidor al procesar el pago' 
-      });
-    } finally {
-      connection.release();
     }
-  },
-
-  // Cancelar un pedido
-  cancelarPedido: async (req, res) => {
-    const connection = await pool.getConnection();
     
-    try {
-      await connection.beginTransaction();
-      
-      const { idPedido } = req.params;
-
-      // Validar que el ID sea un número
-      if (isNaN(idPedido)) {
-        await connection.rollback();
-        return res.status(400).json({ 
-          error: 'ID de pedido inválido' 
-        });
-      }
-
-      // Verificar que el pedido existe y está pendiente
-      const [pedidoResult] = await connection.execute(
-        'SELECT idPedido, idMesa, estado FROM pedidos WHERE idPedido = ? AND tipo = "manual"',
-        [idPedido]
-      );
-
-      if (pedidoResult.length === 0) {
-        await connection.rollback();
-        return res.status(404).json({ 
-          error: 'Pedido no encontrado' 
-        });
-      }
-
-      const pedido = pedidoResult[0];
-
-      if (pedido.estado !== 'pendiente') {
-        await connection.rollback();
-        return res.status(400).json({ 
-          error: `No se puede cancelar un pedido con estado: ${pedido.estado}` 
-        });
-      }
-
-      // Actualizar el estado del pedido
-      await connection.execute(
-        'UPDATE pedidos SET estado = "cancelado" WHERE idPedido = ?',
-        [idPedido]
-      );
-
-      // Liberar la mesa
-      await connection.execute(
-        'UPDATE mesas SET estado = "disponible" WHERE id = ?',
-        [pedido.idMesa]
-      );
-
-      await connection.commit();
-
-      res.json({
-        success: true,
-        message: 'Pedido cancelado exitosamente',
-        data: {
-          idPedido: parseInt(idPedido),
-          estadoAnterior: 'pendiente',
-          estadoNuevo: 'cancelado'
-        }
+    if (error.message.includes('Stock insuficiente')) {
+      return res.status(400).json({ 
+        error: 'Stock insuficiente para algunos productos',
+        code: 'INSUFFICIENT_STOCK'
       });
+    }
 
-    } catch (error) {
-      await connection.rollback();
-      console.error('Error al cancelar pedido:', error);
-      res.status(500).json({ 
-        error: 'Error interno del servidor al cancelar el pedido' 
+    if (error.message.includes('Mesa no encontrada')) {
+      return res.status(404).json({ 
+        error: 'Mesa no encontrada',
+        code: 'MESA_NOT_FOUND'
       });
-    } finally {
+    }
+
+    res.status(500).json({ 
+      error: 'Error al registrar el pedido',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      code: 'SERVER_ERROR'
+    });
+  } finally {
+    if (connection) {
       connection.release();
-    }
-  },
-
-  // Obtener historial de pedidos de una mesa específica
-  obtenerHistorialMesa: async (req, res) => {
-    try {
-      const { idMesa } = req.params;
-      const { limite = 10, pagina = 1 } = req.query;
-
-      // Validar parámetros
-      if (isNaN(idMesa)) {
-        return res.status(400).json({ 
-          error: 'ID de mesa inválido' 
-        });
-      }
-
-      const offset = (pagina - 1) * limite;
-
-      const [pedidos] = await pool.execute(`
-        SELECT 
-          p.idPedido,
-          p.total,
-          p.estado,
-          p.fechaCreacion,
-          p.fechaPago,
-          COUNT(dp.id) as totalProductos
-        FROM pedidos p
-        LEFT JOIN detalle_pedidos dp ON p.idPedido = dp.idPedido
-        WHERE p.idMesa = ? AND p.tipo = 'manual'
-        GROUP BY p.idPedido, p.total, p.estado, p.fechaCreacion, p.fechaPago
-        ORDER BY p.fechaCreacion DESC
-        LIMIT ? OFFSET ?
-      `, [idMesa, parseInt(limite), parseInt(offset)]);
-
-      const [totalResult] = await pool.execute(
-        'SELECT COUNT(*) as total FROM pedidos WHERE idMesa = ? AND tipo = "manual"',
-        [idMesa]
-      );
-
-      res.json({
-        success: true,
-        data: pedidos,
-        pagination: {
-          paginaActual: parseInt(pagina),
-          limite: parseInt(limite),
-          total: totalResult[0].total,
-          totalPaginas: Math.ceil(totalResult[0].total / limite)
-        }
-      });
-
-    } catch (error) {
-      console.error('Error al obtener historial de mesa:', error);
-      res.status(500).json({ 
-        error: 'Error al obtener historial de pedidos de la mesa' 
-      });
-    }
-  },
-
-  // Obtener estadísticas de ventas manuales
-  obtenerEstadisticas: async (req, res) => {
-    try {
-      const { fechaInicio, fechaFin } = req.query;
-      
-      let filtroFecha = '';
-      let parametros = [];
-
-      if (fechaInicio && fechaFin) {
-        filtroFecha = 'AND DATE(p.fechaCreacion) BETWEEN ? AND ?';
-        parametros = [fechaInicio, fechaFin];
-      } else if (fechaInicio) {
-        filtroFecha = 'AND DATE(p.fechaCreacion) >= ?';
-        parametros = [fechaInicio];
-      } else if (fechaFin) {
-        filtroFecha = 'AND DATE(p.fechaCreacion) <= ?';
-        parametros = [fechaFin];
-      }
-
-      // Estadísticas generales
-      const [estadisticas] = await pool.execute(`
-        SELECT 
-          COUNT(*) as totalPedidos,
-          COUNT(CASE WHEN estado = 'pendiente' THEN 1 END) as pedidosPendientes,
-          COUNT(CASE WHEN estado = 'pagado' THEN 1 END) as pedidosPagados,
-          COUNT(CASE WHEN estado = 'cancelado' THEN 1 END) as pedidosCancelados,
-          COALESCE(SUM(CASE WHEN estado = 'pagado' THEN total END), 0) as ventaTotal,
-          COALESCE(AVG(CASE WHEN estado = 'pagado' THEN total END), 0) as promedioVenta
-        FROM pedidos p
-        WHERE tipo = 'manual' ${filtroFecha}
-      `, parametros);
-
-      // Productos más vendidos
-      const [productosMasVendidos] = await pool.execute(`
-        SELECT 
-          pr.nombre,
-          SUM(dp.cantidad) as cantidadVendida,
-          SUM(dp.subtotal) as ventaTotal
-        FROM detalle_pedidos dp
-        JOIN productos pr ON dp.idProducto = pr.idProducto
-        JOIN pedidos p ON dp.idPedido = p.idPedido
-        WHERE p.tipo = 'manual' AND p.estado = 'pagado' ${filtroFecha}
-        GROUP BY pr.idProducto, pr.nombre
-        ORDER BY cantidadVendida DESC
-        LIMIT 5
-      `, parametros);
-
-      // Ventas por día
-      const [ventasPorDia] = await pool.execute(`
-        SELECT 
-          DATE(p.fechaCreacion) as fecha,
-          COUNT(*) as totalPedidos,
-          COALESCE(SUM(CASE WHEN estado = 'pagado' THEN total END), 0) as ventaTotal
-        FROM pedidos p
-        WHERE tipo = 'manual' ${filtroFecha}
-        GROUP BY DATE(p.fechaCreacion)
-        ORDER BY fecha DESC
-        LIMIT 30
-      `, parametros);
-
-      res.json({
-        success: true,
-        data: {
-          resumen: estadisticas[0],
-          productosMasVendidos,
-          ventasPorDia
-        }
-      });
-
-    } catch (error) {
-      console.error('Error al obtener estadísticas:', error);
-      res.status(500).json({ 
-        error: 'Error al obtener estadísticas de ventas' 
-      });
     }
   }
-
 };
 
-module.exports = manualSaleController;
+/**
+ * Obtiene todos los pedidos activos (pendientes o en preparación)
+ * @route GET /api/manualSale/pedidos-pendientes
+ */
+const getPedidosPendientes = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        p.idPedido,
+        p.fecha,
+        p.estado,
+        p.total,
+        p.observaciones,
+        m.numero as numeroMesa,
+        m.idMesa,
+        m.estado as estadoMesa,
+        s.nombre as sede,
+        s.idSede,
+        COUNT(DISTINCT pp.idProducto) as cantidadProductos,
+        SUM(pp.cantidad) as cantidadItems
+      FROM pedido p
+      INNER JOIN mesa m ON p.idMesa = m.idMesa
+      INNER JOIN sede s ON p.idSede = s.idSede
+      LEFT JOIN pedido_producto pp ON p.idPedido = pp.idPedido
+      WHERE p.estado IN ('pendiente', 'en preparación', 'listo')
+        AND p.tipo_pedido = 'mesa'
+      GROUP BY p.idPedido, p.fecha, p.estado, p.total, p.observaciones,
+               m.numero, m.idMesa, m.estado, s.nombre, s.idSede
+      ORDER BY p.fecha DESC
+    `;
+    const [pedidos] = await db.query(query);
+    res.json(pedidos);
+  } catch (error) {
+    console.error('Error al obtener pedidos pendientes:', error);
+    res.status(500).json({ 
+      error: 'Error al cargar los pedidos pendientes',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Obtiene el detalle completo de un pedido específico
+ * @route GET /api/manualSale/pedido/:idPedido
+ */
+const getDetallePedido = async (req, res) => {
+  try {
+    const { idPedido } = req.params;
+
+    if (!idPedido || isNaN(idPedido)) {
+      return res.status(400).json({ 
+        error: 'ID de pedido inválido',
+        code: 'INVALID_ID'
+      });
+    }
+
+    // Obtener información del pedido
+    const queryPedido = `
+      SELECT 
+        p.idPedido,
+        p.fecha,
+        p.estado,
+        p.total,
+        p.observaciones,
+        p.tipo_pedido,
+        m.numero as numeroMesa,
+        m.idMesa,
+        m.estado as estadoMesa,
+        s.nombre as sede,
+        s.idSede,
+        c.nombre as cliente,
+        c.idCliente
+      FROM pedido p
+      LEFT JOIN mesa m ON p.idMesa = m.idMesa
+      INNER JOIN sede s ON p.idSede = s.idSede
+      INNER JOIN cliente c ON p.idCliente = c.idCliente
+      WHERE p.idPedido = ?
+    `;
+
+    // Obtener productos del pedido
+    const queryProductos = `
+      SELECT 
+        pp.idProducto,
+        pr.nombre,
+        pp.cantidad,
+        pp.precio_unitario,
+        pp.subtotal,
+        c.nombre as categoria
+      FROM pedido_producto pp
+      INNER JOIN producto pr ON pp.idProducto = pr.idProducto
+      INNER JOIN categoria c ON pr.idCategoria = c.id
+      WHERE pp.idPedido = ?
+      ORDER BY c.nombre, pr.nombre
+    `;
+
+    const [[pedido]] = await db.query(queryPedido, [idPedido]);
+    const [productos] = await db.query(queryProductos, [idPedido]);
+
+    if (!pedido) {
+      return res.status(404).json({ 
+        error: 'Pedido no encontrado',
+        code: 'PEDIDO_NOT_FOUND'
+      });
+    }
+
+    // Calcular resumen
+    const resumen = {
+      cantidadProductos: productos.length,
+      cantidadItems: productos.reduce((sum, p) => sum + p.cantidad, 0),
+      subtotal: productos.reduce((sum, p) => sum + parseFloat(p.subtotal), 0)
+    };
+
+    res.json({
+      ...pedido,
+      productos,
+      resumen
+    });
+
+  } catch (error) {
+    console.error('Error al obtener detalle del pedido:', error);
+    res.status(500).json({ 
+      error: 'Error al cargar el detalle del pedido',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Procesa el pago de un pedido y libera la mesa
+ * @route POST /api/manualSale/pagar
+ * @body { idPedido, metodoPago }
+ */
+const procesarPago = async (req, res) => {
+  const connection = await db.getConnection();
+  
+  try {
+    const { idPedido, metodoPago = 'efectivo' } = req.body;
+
+    // Validaciones
+    if (!idPedido || isNaN(idPedido)) {
+      return res.status(400).json({ 
+        error: 'ID de pedido inválido',
+        code: 'INVALID_ID'
+      });
+    }
+
+    const metodosValidos = ['efectivo', 'tarjeta', 'transferencia'];
+    const metodoNormalizado = metodoPago.toLowerCase();
+    
+    if (!metodosValidos.includes(metodoNormalizado)) {
+      return res.status(400).json({ 
+        error: `Método de pago inválido. Use: ${metodosValidos.join(', ')}`,
+        code: 'INVALID_PAYMENT_METHOD'
+      });
+    }
+
+    // Verificar que el pedido existe y no está pagado
+    const [pedidos] = await connection.query(
+      'SELECT idPedido, estado, total FROM pedido WHERE idPedido = ?',
+      [idPedido]
+    );
+
+    if (pedidos.length === 0) {
+      return res.status(404).json({ 
+        error: 'Pedido no encontrado',
+        code: 'PEDIDO_NOT_FOUND'
+      });
+    }
+
+    if (pedidos[0].estado === 'entregado') {
+      return res.status(409).json({ 
+        error: 'El pedido ya ha sido pagado y cerrado',
+        code: 'ALREADY_PAID'
+      });
+    }
+
+    // Llamar al procedimiento almacenado
+    const query = 'CALL sp_cerrar_pedido_pagado(?, ?)';
+    await connection.query(query, [idPedido, metodoNormalizado]);
+
+    res.json({
+      success: true,
+      message: 'Pedido pagado y cerrado exitosamente',
+      data: {
+        idPedido,
+        metodoPago: metodoNormalizado,
+        monto: pedidos[0].total,
+        fechaPago: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al procesar pago:', error);
+
+    if (error.message.includes('Pedido no encontrado')) {
+      return res.status(404).json({ 
+        error: 'Pedido no encontrado',
+        code: 'PEDIDO_NOT_FOUND'
+      });
+    }
+
+    if (error.message.includes('ya está cerrado')) {
+      return res.status(409).json({ 
+        error: 'El pedido ya ha sido pagado',
+        code: 'ALREADY_PAID'
+      });
+    }
+
+    res.status(500).json({ 
+      error: 'Error al procesar el pago',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      code: 'PAYMENT_ERROR'
+    });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+};
+
+/**
+ * Obtiene estadísticas del día actual
+ * @route GET /api/manualSale/estadisticas
+ */
+const getEstadisticas = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        COUNT(DISTINCT p.idPedido) as totalPedidosHoy,
+        COALESCE(SUM(p.total), 0) as ventasTotalesHoy,
+        COUNT(DISTINCT CASE WHEN p.estado IN ('pendiente', 'en preparación') THEN p.idPedido END) as pedidosActivos,
+        COUNT(DISTINCT CASE WHEN p.estado = 'entregado' THEN p.idPedido END) as pedidosCompletados,
+        (SELECT COUNT(*) FROM mesa WHERE estado = 'disponible') as mesasDisponibles,
+        (SELECT COUNT(*) FROM mesa WHERE estado = 'ocupada') as mesasOcupadas
+      FROM pedido p
+      WHERE DATE(p.fecha) = CURDATE()
+        AND p.tipo_pedido = 'mesa'
+    `;
+    
+    const [stats] = await db.query(query);
+    res.json(stats[0] || {});
+  } catch (error) {
+    console.error('Error al obtener estadísticas:', error);
+    res.status(500).json({ 
+      error: 'Error al cargar estadísticas',
+      details: error.message 
+    });
+  }
+};
+
+module.exports = {
+  getMesas,
+  getProductos,
+  registrarVenta,
+  getPedidosPendientes,
+  getDetallePedido,
+  procesarPago,
+  getCategorias,
+  getEstadisticas
+};

@@ -151,7 +151,7 @@ const Register = () => {
               <input
                 type="text"
                 name="firstName"
-                placeholder="Nombre"
+                placeholder="Nombre*"
                 value={formData.firstName}
                 onChange={handleInputChange}
                 className={`register-input ${errors.firstName ? 'error' : ''}`}
@@ -164,7 +164,7 @@ const Register = () => {
               <input
                 type="text"
                 name="lastName"
-                placeholder="Apellido"
+                placeholder="Apellido*"
                 value={formData.lastName}
                 onChange={handleInputChange}
                 className={`register-input ${errors.lastName ? 'error' : ''}`}
@@ -182,7 +182,7 @@ const Register = () => {
             <input
               type="correo"
               name="correo"
-              placeholder="Correo electrónico"
+              placeholder="Correo electrónico*"
               value={formData.correo}
               onChange={handleInputChange}
               className={`register-input ${errors.correo ? 'error' : ''}`}
@@ -199,7 +199,7 @@ const Register = () => {
             <input
               type="tel"
               name="phone"
-              placeholder="Teléfono (opcional)"
+              placeholder="Teléfono*"
               value={formData.phone}
               onChange={handleInputChange}
               className={`register-input ${errors.phone ? 'error' : ''}`}
@@ -215,7 +215,7 @@ const Register = () => {
             <input
               type="text"
               name="address"
-              placeholder="Dirección (opcional)"
+              placeholder="Dirección*"
               value={formData.address}
               onChange={handleInputChange}
               className="register-input"
@@ -230,7 +230,7 @@ const Register = () => {
             <input
               type={showPassword ? "text" : "password"}
               name="password"
-              placeholder="Contraseña"
+              placeholder="Contraseña*"
               value={formData.password}
               onChange={handleInputChange}
               className={`register-input password-input ${errors.password ? 'error' : ''}`}
@@ -255,7 +255,7 @@ const Register = () => {
             <input
               type={showConfirmPassword ? "text" : "password"}
               name="confirmPassword"
-              placeholder="Confirmar contraseña"
+              placeholder="Confirmar contraseña*"
               value={formData.confirmPassword}
               onChange={handleInputChange}
               className={`register-input password-input ${errors.confirmPassword ? 'error' : ''}`}

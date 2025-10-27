@@ -1,27 +1,52 @@
-// routes/manualSale.js
+// routes/manualSaleRoutes.js
 const express = require('express');
 const router = express.Router();
 const manualSaleController = require('../controllers/manualSaleController');
+const authMiddleware = require('../middleware/authMiddleware');
 
-// Ruta para crear un pedido manual
-router.post('/manual', manualSaleController.crearPedidoManual);
 
-// Ruta para obtener todos los pedidos pendientes
-router.get('/pendientes', manualSaleController.obtenerPedidosPendientes);
+/**
+ * GET /api/manualSale/mesas
+ * Obtiene todas las mesas disponibles
+ */
+router.get('/mesas',  manualSaleController.getMesas);
 
-// Ruta para obtener el detalle de un pedido específico
-router.get('/:idPedido', manualSaleController.obtenerDetallePedido);
+/**
+ * GET /api/manualSale/productos
+ * Obtiene todos los productos disponibles del menú
+ */
+router.get('/productos',  manualSaleController.getProductos);
 
-// Ruta para marcar un pedido como pagado
-router.put('/:idPedido/pagar', manualSaleController.marcarComoPagado);
+/**
+ * POST /api/manualSale/registrar
+ * Registra una nueva venta en mesa
+ * Body: { idMesa: number, idSede: number, productos: Array }
+ */
+router.post('/registrar',  manualSaleController.registrarVenta);
 
-// Ruta para cancelar un pedido
-router.delete('/:idPedido', manualSaleController.cancelarPedido);
+/**
+ * GET /api/manualSale/pedidos-pendientes
+ * Obtiene todos los pedidos activos (pendientes o en preparación)
+ */
+router.get('/pedidos-pendientes',  manualSaleController.getPedidosPendientes);
 
-// Ruta para obtener el historial de pedidos de una mesa
-router.get('/mesa/:idMesa/historial', manualSaleController.obtenerHistorialMesa);
+/**
+ * GET /api/manualSale/pedido/:idPedido
+ * Obtiene el detalle de un pedido específico
+ */
+router.get('/pedido/:idPedido',  manualSaleController.getDetallePedido);
 
-// Ruta para obtener estadísticas de ventas manuales
-router.get('/estadisticas/ventas', manualSaleController.obtenerEstadisticas);
+/**
+ * POST /api/manualSale/pagar
+ * Cierra un pedido y registra el pago
+ * Body: { idPedido: number, metodoPago: string }
+ */
+router.post('/pagar',  manualSaleController.procesarPago);
+
+/**
+ * GET /api/manualSale/categorias
+ * Obtiene todas las categorías para filtrar productos
+ */
+router.get('/categorias',  manualSaleController.getCategorias);
 
 module.exports = router;
