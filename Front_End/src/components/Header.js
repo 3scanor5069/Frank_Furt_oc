@@ -13,34 +13,33 @@ const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [avatarVisible, setAvatarVisible] = useState(false);
 
   const userMenuRef = useRef(null);
-  const userMenuTimeoutRef = useRef(null);
-
   const location = useLocation();
   const navigate = useNavigate();
   
   const { user, isAuthenticated, logout } = useAuth();
 
+  // Cerrar menú al hacer clic fuera
   useEffect(() => {
-    if (isAuthenticated) {
-      const timer = setTimeout(() => {
-        setAvatarVisible(true);
-      }, 100);
-      return () => clearTimeout(timer);
-    } else {
-      setAvatarVisible(false);
-    }
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    return () => {
-      if (userMenuTimeoutRef.current) {
-        clearTimeout(userMenuTimeoutRef.current);
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false);
       }
     };
-  }, []);
+
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [userMenuOpen]);
+
+  // Cerrar menú móvil al cambiar de ruta
+  useEffect(() => {
+    setMobileOpen(false);
+    setOpenDropdown(null);
+    setUserMenuOpen(false);
+  }, [location.pathname]);
 
   const handleLinkClick = () => {
     setMobileOpen(false);
@@ -51,102 +50,32 @@ const Header = () => {
   const handleLogout = () => {
     logout();
     setUserMenuOpen(false);
-    setAvatarVisible(false);
     setMobileOpen(false);
     navigate('/login');
   };
 
-  const handleUserMenuEnter = () => {
-    if (userMenuTimeoutRef.current) {
-      clearTimeout(userMenuTimeoutRef.current);
+  const getUserInitial = (nombre) => {
+    if (!nombre) return 'U';
+    const nameParts = nombre.trim().split(' ');
+    if (nameParts.length >= 2) {
+      return (nameParts[0].charAt(0) + nameParts[1].charAt(0)).toUpperCase();
     }
-    setUserMenuOpen(true);
+    return nombre.charAt(0).toUpperCase();
   };
 
-  const handleUserMenuLeave = () => {
-    userMenuTimeoutRef.current = setTimeout(() => {
-      setUserMenuOpen(false);
-    }, 150);
-  };
-
-  const handleKeyDown = (event, menuType) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      if (menuType === 'user') {
-        setUserMenuOpen(!userMenuOpen);
-      } else if (menuType === 'dropdown') {
-        setOpenDropdown(openDropdown === menuType ? null : menuType);
-      }
-    } else if (event.key === 'Escape') {
-      setUserMenuOpen(false);
-      setOpenDropdown(null);
-    }
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
-        setUserMenuOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+  const isActiveLink = (path) => location.pathname === path;
 
   const getMenuLink = (section) => {
     return location.pathname === '/menu' ? `#${section}` : `/menu#${section}`;
   };
 
-  const getUserInitial = (name) => {
-    if (!name) return 'U';
-    return name.charAt(0).toUpperCase();
-  };
-
-  const isActiveLink = (path) => {
-    return location.pathname === path;
-  };
-
-  const MobileUserSection = () => (
-    <div className="mobile-actions">
-      {isAuthenticated && user ? (
-        <>
-          <div className="mobile-user-info epic-mobile">
-            <div className="mobile-avatar">
-              {getUserInitial(user.nombre)}
-            </div>
-            <div className="mobile-user-details">
-              <span className="mobile-user-name">{user.nombre}</span>
-              <span className="mobile-user-rol">{user.rol}</span>
-            </div>
-          </div>
-          
-        </>
-      ) : (
-        <>
-          <Link to="/login" className="mobile-btn auth-btn" onClick={handleLinkClick}>
-            Iniciar Sesión
-          </Link>
-          <Link to="/register" className="mobile-btn auth-btn secondary" onClick={handleLinkClick}>
-            Registrarse
-          </Link>
-        </>
-      )}
-    </div>
-  );
-
   return (
-    <header className={`header ${isAuthenticated ? 'logged-in' : ''}`}>
+    <header className="header">
+      {/* Contact Bar - Minimalista */}
       <div className="contact-bar">
         <div className="container">
-          <div className="contact-info">
-          </div>
+          
           <div className="social-links">
-            <span className="social-text">📞 +57 300 123 4567</span>
-            <span className="social-text">✉️ contacto@frankfurt.com</span>
-
             <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
               <FaFacebookF />
             </a>
@@ -163,9 +92,11 @@ const Header = () => {
         </div>
       </div>
 
-      <nav className="main-nav" role="navigation" aria-label="Navegación principal">
+      {/* Main Navigation - Compacto */}
+      <nav className="main-nav">
         <div className="container">
-          <Link to="/" className="logo" onClick={handleLinkClick}>
+          {/* Logo */}
+          <Link to="/p" className="logo" onClick={handleLinkClick}>
             <Crown className="crown-icon" />
             <div className="logo-text">
               <span className="brand-name">FRANK FURT</span>
@@ -173,14 +104,14 @@ const Header = () => {
             </div>
           </Link>
 
+          {/* Navigation Menu */}
           <div className={`nav-wrapper ${mobileOpen ? 'nav-open' : ''}`}>
-            <ul className="nav-menu" role="menubar">
-              <li className="nav-item" role="none">
+            <ul className="nav-menu">
+              <li className="nav-item">
                 <Link 
-                  to="/" 
-                  className={`nav-link ${isActiveLink('/') ? 'active' : ''}`} 
+                  to="/p" 
+                  className={`nav-link ${isActiveLink('/p') ? 'active' : ''}`} 
                   onClick={handleLinkClick}
-                  role="menuitem"
                 >
                   Inicio
                 </Link>
@@ -190,34 +121,12 @@ const Header = () => {
                 className={`nav-item dropdown ${openDropdown === 'pages' ? 'active' : ''}`}
                 onMouseEnter={() => setOpenDropdown('pages')}
                 onMouseLeave={() => setOpenDropdown(null)}
-                role="none"
               >
-                <span 
-                  className="nav-link"
-                  role="menuitem"
-                  aria-haspopup="true"
-                  aria-expanded={openDropdown === 'pages'}
-                  tabIndex="0"
-                  onKeyDown={(e) => handleKeyDown(e, 'pages')}
-                >
-                  Páginas
-                </span>
-                <ul className="dropdown-menu" role="menu" aria-label="Submenú de páginas">
-                  <li role="none">
-                    <Link to="/about" onClick={handleLinkClick} role="menuitem">
-                      Nosotros
-                    </Link>
-                  </li>
-                  <li role="none">
-                    <Link to="/equipo" onClick={handleLinkClick} role="menuitem">
-                      Equipo
-                    </Link>
-                  </li>
-                  <li role="none">
-                    <Link to="/servicios" onClick={handleLinkClick} role="menuitem">
-                      Servicios
-                    </Link>
-                  </li>
+                <span className="nav-link">Páginas</span>
+                <ul className="dropdown-menu">
+                  <li><Link to="/about" onClick={handleLinkClick}>Nosotros</Link></li>
+                  <li><Link to="/equipo" onClick={handleLinkClick}>Equipo</Link></li>
+                  <li><Link to="/servicios" onClick={handleLinkClick}>Servicios</Link></li>
                 </ul>
               </li>
 
@@ -225,78 +134,89 @@ const Header = () => {
                 className={`nav-item dropdown ${openDropdown === 'menu' ? 'active' : ''}`}
                 onMouseEnter={() => setOpenDropdown('menu')}
                 onMouseLeave={() => setOpenDropdown(null)}
-                role="none"
               >
                 <Link 
                   to="/menu" 
                   className={`nav-link ${isActiveLink('/menu') ? 'active' : ''}`}
                   onClick={handleLinkClick}
-                  role="menuitem"
-                  aria-haspopup="true"
-                  aria-expanded={openDropdown === 'menu'}
                 >
                   Menú
                 </Link>
-                <ul className="dropdown-menu" role="menu" aria-label="Submenú del menú">
-                  <li role="none">
-                    <a href={getMenuLink('platos-principales')} onClick={handleLinkClick} role="menuitem">
-                      Platos Principales
-                    </a>
-                  </li>
-                  <li role="none">
-                    <a href={getMenuLink('bebidas')} onClick={handleLinkClick} role="menuitem">
-                      Bebidas
-                    </a>
-                  </li>
-                  <li role="none">
-                    <a href={getMenuLink('postres')} onClick={handleLinkClick} role="menuitem">
-                      Postres
-                    </a>
-                  </li>
+                <ul className="dropdown-menu">
+                  <li><a href={getMenuLink('platos-principales')} onClick={handleLinkClick}>Platos Principales</a></li>
+                  <li><a href={getMenuLink('bebidas')} onClick={handleLinkClick}>Bebidas</a></li>
+                  <li><a href={getMenuLink('postres')} onClick={handleLinkClick}>Postres</a></li>
                 </ul>
               </li>
 
-              <li className="nav-item" role="none">
+              <li className="nav-item">
                 <Link 
                   to="/ubications" 
                   className={`nav-link ${isActiveLink('/ubications') ? 'active' : ''}`}
                   onClick={handleLinkClick}
-                  role="menuitem"
                 >
                   Ubicaciones
                 </Link>
               </li>
 
-              <li className="nav-actions" role="none">
+              <li className="nav-item">
                 <Link 
                   to="/cart" 
-                  className={`nav-link ${isActiveLink('/cart') ? 'active' : ''}`}
+                  className={`nav-link cart-link ${isActiveLink('/cart') ? 'active' : ''}`}
                   onClick={handleLinkClick}
-                  role="menuitem"
                 >
-                  <FaShoppingCart /> Carrito
+                  <FaShoppingCart /> <span>Carrito</span>
                 </Link>
               </li>
             </ul>
 
-            <MobileUserSection />
+            {/* Mobile User Section */}
+            {mobileOpen && (
+              <div className="mobile-actions">
+                {isAuthenticated && user ? (
+                  <>
+                    <div className="mobile-user-info">
+                      <div className="mobile-avatar">
+                        {getUserInitial(user.nombre)}
+                      </div>
+                      <div className="mobile-user-details">
+                        <span className="mobile-user-name">{user.nombre}</span>
+                        <span className="mobile-user-rol">{user.rol}</span>
+                      </div>
+                    </div>
+                    <Link to="/MiPerfil" className="mobile-btn" onClick={handleLinkClick}>
+                      <FaUser /> Mi Perfil
+                    </Link>
+                    <button className="mobile-btn logout-btn" onClick={handleLogout}>
+                      Cerrar Sesión
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/login" className="mobile-btn primary" onClick={handleLinkClick}>
+                      Iniciar Sesión
+                    </Link>
+                    <Link to="/register" className="mobile-btn secondary" onClick={handleLinkClick}>
+                      Registrarse
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
+          {/* Header Actions - Desktop */}
           <div className="header-actions">
             {isAuthenticated && user ? (
               <div 
-                className="user-menu-container epic-style" 
+                className="user-menu-container" 
                 ref={userMenuRef}
-                onMouseEnter={handleUserMenuEnter}
-                onMouseLeave={handleUserMenuLeave}
               >
                 <button 
-                  className={`user-menu-trigger ${avatarVisible ? 'avatar-visible' : ''}`}
+                  className="user-menu-trigger"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  onKeyDown={(e) => handleKeyDown(e, 'user')}
                   aria-haspopup="true"
                   aria-expanded={userMenuOpen}
-                  aria-label={`Menú de usuario de ${user.nombre}`}
                 >
                   <div className="user-avatar">
                     {getUserInitial(user.nombre)}
@@ -308,7 +228,7 @@ const Header = () => {
                 </button>
 
                 {userMenuOpen && (
-                  <div className="user-dropdown-menu" role="menu">
+                  <div className="user-dropdown-menu">
                     <div className="user-dropdown-header">
                       <div className="dropdown-avatar">
                         {getUserInitial(user.nombre)}
@@ -325,9 +245,8 @@ const Header = () => {
                       to="/MiPerfil" 
                       className="dropdown-item" 
                       onClick={handleLinkClick}
-                      role="menuitem"
                     >
-                      <FaUser /> Mi Perfil
+                      <FaUser /> <span>Mi Perfil</span>
                     </Link>
                     
                     <div className="dropdown-divider"></div>
@@ -335,25 +254,25 @@ const Header = () => {
                     <button 
                       className="dropdown-item logout-item" 
                       onClick={handleLogout}
-                      role="menuitem"
                     >
-                      Cerrar Sesión
+                      <span>Cerrar Sesión</span>
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <>
+              <div className="auth-buttons">
                 <Link to="/login" className="btn-login" onClick={handleLinkClick}>
                   Iniciar Sesión
                 </Link>
                 <Link to="/register" className="btn-register" onClick={handleLinkClick}>
                   Registrarse
                 </Link>
-              </>
+              </div>
             )}
           </div>
 
+          {/* Mobile Menu Button */}
           <button 
             className="mobile-menu-btn"
             onClick={() => setMobileOpen(!mobileOpen)}

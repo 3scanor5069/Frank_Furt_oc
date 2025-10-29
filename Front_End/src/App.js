@@ -11,7 +11,9 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import AboutPage from './pages/AboutPage';
 import MenuPage from './pages/MenuPage';
-import Restablecer from './pages/Restablecer';
+import ResetPassword from './pages/ResetPassword';
+import ForgotPassword from './pages/ForgotPassword';
+
 import MenuDetail from './pages/MenuDetail';
 import CartPage from './pages/CartPage'; 
 import TeamPage from './pages/TeamPage';
@@ -53,7 +55,8 @@ function App() {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/Login" element={<Login />} />
             <Route path="/Register" element={<Register />} />
-            <Route path="/Restablecer" element={<Restablecer />} />
+            <Route path="/ResetPassword" element={<ResetPassword />} />
+            <Route path="/ForgotPassword" element={<ForgotPassword />} />
             <Route path="/Ubications" element={<Ubications />} />
             <Route path="/equipo" element={<TeamPage />} />
             <Route path="/servicios" element={<ServicesPage />} />

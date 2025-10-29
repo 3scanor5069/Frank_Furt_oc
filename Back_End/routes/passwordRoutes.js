@@ -1,10 +1,13 @@
-// routes/passwordRoutes.js
+// Back_end/routes/passwordRoutes.js
+
 const express = require('express');
-const { requestPasswordReset, resetPassword } = require('../controllers/passwordController');
-
 const router = express.Router();
+const passwordController = require('../controllers/passwordController');
 
-router.post('/forgot-password', requestPasswordReset);
-router.post('/reset-password', resetPassword);
+// Ruta para solicitar recuperación de contraseña
+router.post('/forgot-password', passwordController.forgotPassword);
+
+// Ruta para restablecer la contraseña con el token
+router.post('/reset-password/:token', passwordController.resetPassword);
 
 module.exports = router;

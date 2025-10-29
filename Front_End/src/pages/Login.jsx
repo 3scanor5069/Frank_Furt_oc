@@ -182,7 +182,7 @@ const Login = () => {
           </div>
 
           <div className="form-options">
-            <Link to="/Restablecer" className="forgot-password">
+            <Link to="/ForgotPassword" className="forgot-password">
               ¿Olvidaste tu contraseña?
             </Link>
           </div>
