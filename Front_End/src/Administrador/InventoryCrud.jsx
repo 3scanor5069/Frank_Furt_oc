@@ -1,290 +1,691 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Search,
   Plus,
-  Edit,
-  Trash2,
   Package,
   AlertTriangle,
   TrendingUp,
   TrendingDown,
-  Download,
-  Filter,
   RefreshCw,
+  X,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  History,
+  Filter,
+  Calendar,
 } from "lucide-react";
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import "./InventoryCrud.css";
 
 const InventoryCrud = () => {
+  // ========================================
+  // ESTADOS
+  // ========================================
   const [inventoryItems, setInventoryItems] = useState([]);
+  const [insumosList, setInsumosList] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("Todas");
   const [selectedStatus, setSelectedStatus] = useState("Todos");
-  const [showModal, setShowModal] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-
-  const [formData, setFormData] = useState({
-    idProducto: "", // ahora obligatorio para crear inventario
-    idSede: 1, // por ahora fijo en la sede 1
-    stockDisponible: "",
-    stock_minimo: "",
-    stock_maximo: "",
+  
+  // Stats
+  const [stats, setStats] = useState({
+    total_insumos: 0,
+    en_stock: 0,
+    requiere_atencion: 0,
+    agotado: 0
   });
 
-  const statuses = ["Todos", "En Stock", "Stock Bajo", "Stock Crítico", "Agotado"];
+  // Modales
+  const [showMovementModal, setShowMovementModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailModalData, setDetailModalData] = useState({
+    title: "",
+    items: []
+  });
 
-  // Función para determinar el estado basado en stock
-  const getStockStatus = (current, min) => {
-    if (current === 0) return "Agotado";
-    if (current <= min * 0.5) return "Stock Crítico";
-    if (current <= min) return "Stock Bajo";
-    return "En Stock";
-  };
+  // Formulario de Movimiento
+  const [movementForm, setMovementForm] = useState({
+    nombre_insumo: "",
+    cantidad_movida: "",
+    tipo_movimiento: "entrada",
+    motivo_detalle: "",
+    observaciones: "",
+    idSede: 1
+  });
 
-  // 🔹 Cargar datos desde la API
+  const API_BASE_URL = 'http://localhost:3006/api/inventory';
+
+  // ========================================
+  // CARGAR DATOS INICIALES
+  // ========================================
+  
   useEffect(() => {
-    fetchInventory();
+    loadInitialData();
   }, []);
 
-  const fetchInventory = async () => {
+  const loadInitialData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:3006/api/inventory");
+      await Promise.all([
+        fetchInventory(),
+        fetchStats(),
+        fetchInsumosList()
+      ]);
+    } catch (error) {
+      console.error('Error cargando datos iniciales:', error);
+      toast.error('Error al cargar datos del inventario', {
+        position: "top-right",
+        autoClose: 4000
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // ========================================
+  // FUNCIONES DE FETCH
+  // ========================================
+
+  const fetchInventory = async () => {
+    try {
+      const res = await fetch(API_BASE_URL);
       const data = await res.json();
-      const updated = data.map((item) => ({
-        ...item,
-        status: getStockStatus(item.stockDisponible, item.stock_minimo),
-      }));
-      setInventoryItems(updated);
+      setInventoryItems(data);
     } catch (err) {
       console.error("Error cargando inventario:", err);
-    } finally {
-      setIsLoading(false);
+      throw err;
     }
   };
 
-  // 🔹 Guardar inventario (crear o actualizar)
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const fetchStats = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/stats`);
+      const data = await res.json();
+      setStats(data);
+    } catch (err) {
+      console.error("Error cargando estadísticas:", err);
+      throw err;
+    }
+  };
+
+  const fetchInsumosList = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/insumos-list`);
+      const data = await res.json();
+      setInsumosList(data);
+    } catch (err) {
+      console.error("Error cargando lista de insumos:", err);
+      throw err;
+    }
+  };
+
+  // ========================================
+  // MANEJO DE STATS CARDS
+  // ========================================
+
+  const handleStatsCardClick = async (cardType) => {
     setIsLoading(true);
     try {
-      if (editingItem) {
-        // actualizar
-        await fetch(`http://localhost:3006/api/inventory/${editingItem.idInventario}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        });
-      } else {
-        // crear
-        await fetch("http://localhost:3006/api/inventory", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        });
+      let endpoint = '';
+      let title = '';
+
+      switch(cardType) {
+        case 'all':
+          setDetailModalData({
+            title: "Todos los Insumos",
+            items: inventoryItems
+          });
+          setShowDetailModal(true);
+          setIsLoading(false);
+          return;
+        
+        case 'in-stock':
+          endpoint = `${API_BASE_URL}/in-stock`;
+          title = "Insumos en Buen Estado";
+          break;
+        
+        case 'low-stock':
+          endpoint = `${API_BASE_URL}/low-stock`;
+          title = "Insumos que Requieren Atención";
+          break;
+        
+        case 'out-of-stock':
+          endpoint = `${API_BASE_URL}/out-of-stock`;
+          title = "Insumos Agotados";
+          break;
+        
+        default:
+          return;
       }
-      fetchInventory();
-      handleCloseModal();
-    } catch (err) {
-      console.error("Error guardando inventario:", err);
+
+      const res = await fetch(endpoint);
+      const data = await res.json();
+
+      setDetailModalData({
+        title,
+        items: data
+      });
+      setShowDetailModal(true);
+    } catch (error) {
+      console.error('Error al obtener datos filtrados:', error);
+      toast.error('Error al cargar los datos filtrados', {
+        position: "top-right",
+        autoClose: 3000
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 🔹 Editar inventario
-  const handleEdit = (item) => {
-    setEditingItem(item);
-    setFormData({
-      idProducto: item.idProducto,
-      idSede: 1,
-      stockDisponible: item.stockDisponible,
-      stock_minimo: item.stock_minimo,
-      stock_maximo: item.stock_maximo,
-    });
-    setShowModal(true);
-  };
+  // ========================================
+  // MANEJO DE FORMULARIO DE MOVIMIENTO
+  // ========================================
 
-  // 🔹 Eliminar inventario
-  const handleDelete = async (idInventario) => {
-    if (window.confirm("¿Estás seguro de que quieres eliminar este registro?")) {
-      try {
-        await fetch(`http://localhost:3006/api/inventory/${idInventario}`, {
-          method: "DELETE",
-        });
-        fetchInventory();
-      } catch (err) {
-        console.error("Error eliminando inventario:", err);
+  const handleMovementFormChange = useCallback((field, value) => {
+    setMovementForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  }, []);
+
+  const handleSubmitMovement = async (e) => {
+    e.preventDefault();
+
+    // Validaciones
+    if (!movementForm.nombre_insumo) {
+      toast.error('Debes seleccionar un insumo', {
+        position: "top-right",
+        autoClose: 3000
+      });
+      return;
+    }
+
+    if (!movementForm.cantidad_movida || movementForm.cantidad_movida <= 0) {
+      toast.error('La cantidad debe ser mayor a 0', {
+        position: "top-right",
+        autoClose: 3000
+      });
+      return;
+    }
+
+    if (!movementForm.motivo_detalle) {
+      toast.error('Debes seleccionar un motivo', {
+        position: "top-right",
+        autoClose: 3000
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/movement`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(movementForm),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Error al registrar movimiento');
       }
+
+      toast.success(`✅ Movimiento de ${movementForm.tipo_movimiento} registrado correctamente`, {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true
+      });
+
+      // Recargar datos
+      await loadInitialData();
+      handleCloseMovementModal();
+    } catch (err) {
+      console.error("Error registrando movimiento:", err);
+      toast.error(`❌ ${err.message}`, {
+        position: "top-right",
+        autoClose: 4000
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setEditingItem(null);
-    setFormData({
-      idProducto: "",
-      idSede: 1,
-      stockDisponible: "",
-      stock_minimo: "",
-      stock_maximo: "",
+  const handleOpenMovementModal = useCallback((preselectedInsumo = null) => {
+    if (preselectedInsumo) {
+      setMovementForm({
+        nombre_insumo: preselectedInsumo.nombre_insumo,
+        cantidad_movida: "",
+        tipo_movimiento: "entrada",
+        motivo_detalle: "",
+        observaciones: "",
+        idSede: 1
+      });
+    }
+    setShowMovementModal(true);
+  }, []);
+
+  const handleCloseMovementModal = useCallback(() => {
+    setShowMovementModal(false);
+    setMovementForm({
+      nombre_insumo: "",
+      cantidad_movida: "",
+      tipo_movimiento: "entrada",
+      motivo_detalle: "",
+      observaciones: "",
+      idSede: 1
     });
-  };
+  }, []);
 
-  const filteredItems = inventoryItems.filter((item) => {
-    const matchesSearch = item.nombre.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === "Todas" || item.categoria === selectedCategory;
-    const matchesStatus = selectedStatus === "Todos" || item.status === selectedStatus;
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  const handleCloseDetailModal = useCallback(() => {
+    setShowDetailModal(false);
+    setDetailModalData({
+      title: "",
+      items: []
+    });
+  }, []);
 
-  const stats = {
-    total: inventoryItems.length,
-    enStock: inventoryItems.filter((i) => i.status === "En Stock").length,
-    stockBajo: inventoryItems.filter((i) => i.status === "Stock Bajo").length,
-    stockCritico: inventoryItems.filter((i) => i.status === "Stock Crítico").length,
-    agotado: inventoryItems.filter((i) => i.status === "Agotado").length,
-    valorTotal: inventoryItems.reduce(
-      (total, i) => total + i.stockDisponible * i.precio,
-      0
-    ),
-  };
+  // ========================================
+  // REFRESH MANUAL
+  // ========================================
+
+  const handleRefresh = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      await loadInitialData();
+      toast.success('📊 Inventario actualizado correctamente', {
+        position: "top-right",
+        autoClose: 2000
+      });
+    } catch (error) {
+      toast.error('Error al actualizar inventario', {
+        position: "top-right",
+        autoClose: 3000
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [loadInitialData]);
+
+  // ========================================
+  // FILTRADO
+  // ========================================
+
+  const filteredItems = useMemo(() => {
+    return inventoryItems.filter((item) => {
+      const matchesSearch = item.nombre_insumo
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      const matchesStatus =
+        selectedStatus === "Todos" || item.estado === selectedStatus;
+      return matchesSearch && matchesStatus;
+    });
+  }, [inventoryItems, searchTerm, selectedStatus]);
+
+  // ========================================
+  // OPCIONES DE MOTIVOS
+  // ========================================
+
+  const motivosEntrada = [
+    { value: "compra", label: "Compra a proveedor" },
+    { value: "ajuste_conteo", label: "Ajuste de conteo (corrección)" }
+  ];
+
+  const motivosSalida = [
+    { value: "venta/consumo", label: "Venta / Consumo en producción" },
+    { value: "merma/desperdicio", label: "Merma / Desperdicio" },
+    { value: "ajuste_conteo", label: "Ajuste de conteo (corrección)" }
+  ];
+
+  const currentMotivos = movementForm.tipo_movimiento === "entrada" 
+    ? motivosEntrada 
+    : motivosSalida;
+
+  // ========================================
+  // RENDER
+  // ========================================
 
   return (
     <div className="inventory-crud">
+      <ToastContainer limit={3} />
+
+      {/* HEADER */}
       <div className="header-invent">
         <div className="header-title-invent">
-          <h1>Gestión de Inventario</h1>
-          <p>Controla el stock y suministros de Frank Furt</p>
+          <h1>🍔 Gestión de Inventario</h1>
+          <p>Control de Insumos y Materias Primas - Frank Furt</p>
         </div>
         <div className="header-actions-invent">
-          <button className="btn-refresh" onClick={fetchInventory} disabled={isLoading}>
+          <button 
+            className="btn-refresh" 
+            onClick={handleRefresh} 
+            disabled={isLoading}
+            title="Actualizar inventario"
+          >
             <RefreshCw size={20} className={isLoading ? "spinning" : ""} />
             {isLoading ? "Actualizando..." : "Actualizar"}
           </button>
-          <button className="btn-primary" onClick={() => setShowModal(true)}>
-            <Plus size={20} /> Agregar Inventario
+          <button 
+            className="btn-primary" 
+            onClick={() => handleOpenMovementModal(null)}
+            title="Registrar movimiento"
+          >
+            <Plus size={20} /> Registrar Movimiento
           </button>
         </div>
       </div>
 
-      {/* Estadísticas */}
+      {/* STATS CARDS - INTERACTIVAS */}
       <div className="stats-container">
-        <div className="stat-card">
-          <div className="stat-icon total"><Package size={24} /></div>
-          <div className="stat-info"><h3>{stats.total}</h3><p>Total Registros</p></div>
+        <div 
+          className="stat-card clickable" 
+          onClick={() => handleStatsCardClick('all')}
+          title="Ver todos los insumos"
+        >
+          <div className="stat-icon total">
+            <Package size={24} />
+          </div>
+          <div className="stat-info">
+            <h3>{stats.total_insumos}</h3>
+            <p>Total Insumos</p>
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon success"><TrendingUp size={24} /></div>
-          <div className="stat-info"><h3>{stats.enStock}</h3><p>En Stock</p></div>
+
+        <div 
+          className="stat-card clickable" 
+          onClick={() => handleStatsCardClick('in-stock')}
+          title="Ver insumos en buen estado"
+        >
+          <div className="stat-icon success">
+            <TrendingUp size={24} />
+          </div>
+          <div className="stat-info">
+            <h3>{stats.en_stock}</h3>
+            <p>En Stock</p>
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon warning"><AlertTriangle size={24} /></div>
-          <div className="stat-info"><h3>{stats.stockBajo + stats.stockCritico}</h3><p>Requiere Atención</p></div>
+
+        <div 
+          className="stat-card clickable" 
+          onClick={() => handleStatsCardClick('low-stock')}
+          title="Ver insumos que requieren atención"
+        >
+          <div className="stat-icon warning">
+            <AlertTriangle size={24} />
+          </div>
+          <div className="stat-info">
+            <h3>{stats.requiere_atencion}</h3>
+            <p>Requiere Atención</p>
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon danger"><TrendingDown size={24} /></div>
-          <div className="stat-info"><h3>{stats.agotado}</h3><p>Agotados</p></div>
-        </div>
-        <div className="stat-card valor">
-          <div className="stat-info"><h3>${stats.valorTotal.toLocaleString()}</h3><p>Valor Total Inventario</p></div>
+
+        <div 
+          className="stat-card clickable" 
+          onClick={() => handleStatsCardClick('out-of-stock')}
+          title="Ver insumos agotados"
+        >
+          <div className="stat-icon danger">
+            <TrendingDown size={24} />
+          </div>
+          <div className="stat-info">
+            <h3>{stats.agotado}</h3>
+            <p>Agotados</p>
+          </div>
         </div>
       </div>
 
-      {/* Tabla */}
+      {/* FILTROS */}
+      <div className="filters">
+        <div className="search-container">
+          <Search className="search-icon" size={20} />
+          <input
+            type="text"
+            placeholder="Buscar insumo..."
+            className="search-input"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <select
+          className="filter-select"
+          value={selectedStatus}
+          onChange={(e) => setSelectedStatus(e.target.value)}
+        >
+          <option value="Todos">Todos los Estados</option>
+          <option value="En Stock">En Stock</option>
+          <option value="Stock Bajo">Stock Bajo</option>
+          <option value="Stock Crítico">Stock Crítico</option>
+          <option value="Agotado">Agotado</option>
+        </select>
+      </div>
+
+      {/* TABLA */}
       <div className="table-container">
         <table className="inventory-table">
           <thead>
             <tr>
-              <th>Nombre</th>
-              <th>Precio Unit.</th>
-              <th>Stock</th>
-              <th>Min/Máx</th>
+              <th>Nombre del Insumo</th>
+              <th>Unidad de Medida</th>
+              <th>Stock Disponible</th>
+              <th>Stock Mínimo</th>
               <th>Estado</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {filteredItems.map((item) => (
-              <tr key={item.idInventario}>
-                <td>{item.nombre}</td>
-                <td>${item.precio.toLocaleString()}</td>
-                <td>{item.stockDisponible}</td>
-                <td>{item.stock_minimo}/{item.stock_maximo}</td>
-                <td>
-                  <span
-                    className={`status-badge status-${item.status.toLowerCase().replace(/\s+/g, "-")}`}
-                  >
-                    {item.status}
-                  </span>
-                </td>
-                <td>
-                  <button className="btn-action btn-edit" onClick={() => handleEdit(item)}>
-                    <Edit size={16} />
-                  </button>
-                  <button className="btn-action btn-delete" onClick={() => handleDelete(item.idInventario)}>
-                    <Trash2 size={16} />
-                  </button>
+            {filteredItems.length === 0 ? (
+              <tr>
+                <td colSpan="6" className="no-data">
+                  {isLoading 
+                    ? "Cargando inventario..." 
+                    : "No se encontraron insumos"}
                 </td>
               </tr>
-            ))}
+            ) : (
+              filteredItems.map((item, index) => (
+                <tr key={index}>
+                  <td className="font-semibold">{item.nombre_insumo}</td>
+                  <td>{item.unidad_medida}</td>
+                  <td className="text-center font-bold">{item.stock_disponible}</td>
+                  <td className="text-center">{item.stock_minimo_insumo}</td>
+                  <td>
+                    <span className={`status-badge status-${item.estado.toLowerCase().replace(/\s+/g, "-")}`}>
+                      {item.estado}
+                    </span>
+                  </td>
+                  <td>
+                    <button
+                      className="btn-action btn-movement"
+                      onClick={() => handleOpenMovementModal(item)}
+                      title="Registrar movimiento"
+                    >
+                      <ArrowUpCircle size={16} />
+                      Movimiento
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={handleCloseModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+      {/* MODAL DE DETALLE (Stats Cards) */}
+      {showDetailModal && (
+        <div className="modal-overlay" onClick={handleCloseDetailModal}>
+          <div className="modal modal-detail" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header-invent">
-              <h2>{editingItem ? "Editar Inventario" : "Agregar Inventario"}</h2>
-              <button className="modal-close" onClick={handleCloseModal}>×</button>
+              <h2>{detailModalData.title}</h2>
+              <button className="modal-close" onClick={handleCloseDetailModal}>
+                <X size={24} />
+              </button>
             </div>
-            <div className="modal-form">
+            <div className="modal-body">
+              {detailModalData.items.length === 0 ? (
+                <p className="no-data">No hay insumos en esta categoría</p>
+              ) : (
+                <table className="detail-table">
+                  <thead>
+                    <tr>
+                      <th>Insumo</th>
+                      <th>Unidad</th>
+                      <th>Stock</th>
+                      <th>Mínimo</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detailModalData.items.map((item, index) => (
+                      <tr key={index}>
+                        <td>{item.nombre_insumo}</td>
+                        <td>{item.unidad_medida}</td>
+                        <td className="font-bold">{item.stock_disponible}</td>
+                        <td>{item.stock_minimo_insumo}</td>
+                        <td>
+                          <span className={`status-badge status-${item.estado.toLowerCase().replace(/\s+/g, "-")}`}>
+                            {item.estado}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={handleCloseDetailModal}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE REGISTRO DE MOVIMIENTO */}
+      {showMovementModal && (
+        <div className="modal-overlay" onClick={handleCloseMovementModal}>
+          <div className="modal modal-movement" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header-invent">
+              <h2>📦 Registrar Movimiento de Inventario</h2>
+              <button className="modal-close" onClick={handleCloseMovementModal}>
+                <X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handleSubmitMovement} className="modal-form">
+              {/* Tipo de Movimiento */}
+              <div className="form-group full-width">
+                <label className="required">Tipo de Movimiento</label>
+                <div className="radio-group">
+                  <label className="radio-label">
+                    <input
+                      type="radio"
+                      name="tipo_movimiento"
+                      value="entrada"
+                      checked={movementForm.tipo_movimiento === "entrada"}
+                      onChange={(e) => handleMovementFormChange("tipo_movimiento", e.target.value)}
+                    />
+                    <span className="radio-custom entrada">
+                      <ArrowUpCircle size={20} />
+                      Entrada
+                    </span>
+                  </label>
+                  <label className="radio-label">
+                    <input
+                      type="radio"
+                      name="tipo_movimiento"
+                      value="salida"
+                      checked={movementForm.tipo_movimiento === "salida"}
+                      onChange={(e) => handleMovementFormChange("tipo_movimiento", e.target.value)}
+                    />
+                    <span className="radio-custom salida">
+                      <ArrowDownCircle size={20} />
+                      Salida
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Selección de Insumo */}
               <div className="form-row">
                 <div className="form-group">
-                  <label>ID Producto</label>
+                  <label className="required">Insumo</label>
+                  <select
+                    value={movementForm.nombre_insumo}
+                    onChange={(e) => handleMovementFormChange("nombre_insumo", e.target.value)}
+                    required
+                  >
+                    <option value="">Selecciona un insumo...</option>
+                    {insumosList.map((insumo, index) => (
+                      <option key={index} value={insumo.nombre_insumo}>
+                        {insumo.nombre_insumo} ({insumo.unidad_medida}) - Stock: {insumo.stock_disponible}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="required">Cantidad</label>
                   <input
                     type="number"
-                    value={formData.idProducto}
-                    onChange={(e) => setFormData({ ...formData, idProducto: e.target.value })}
-                    disabled={!!editingItem} // No se puede cambiar en edición
+                    step="0.01"
+                    min="0.01"
+                    placeholder="Ej: 10"
+                    value={movementForm.cantidad_movida}
+                    onChange={(e) => handleMovementFormChange("cantidad_movida", e.target.value)}
+                    required
                   />
                 </div>
               </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Stock Disponible</label>
-                  <input
-                    type="number"
-                    value={formData.stockDisponible}
-                    onChange={(e) => setFormData({ ...formData, stockDisponible: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Stock Mínimo</label>
-                  <input
-                    type="number"
-                    value={formData.stock_minimo}
-                    onChange={(e) => setFormData({ ...formData, stock_minimo: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Stock Máximo</label>
-                  <input
-                    type="number"
-                    value={formData.stock_maximo}
-                    onChange={(e) => setFormData({ ...formData, stock_maximo: e.target.value })}
-                  />
-                </div>
+
+              {/* Motivo */}
+              <div className="form-group full-width">
+                <label className="required">Motivo del Movimiento</label>
+                <select
+                  value={movementForm.motivo_detalle}
+                  onChange={(e) => handleMovementFormChange("motivo_detalle", e.target.value)}
+                  required
+                >
+                  <option value="">Selecciona un motivo...</option>
+                  {currentMotivos.map((motivo, index) => (
+                    <option key={index} value={motivo.value}>
+                      {motivo.label}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              {/* Observaciones */}
+              <div className="form-group full-width">
+                <label>Observaciones (opcional)</label>
+                <textarea
+                  rows="3"
+                  placeholder="Ej: Compra a proveedor XYZ, factura #12345"
+                  value={movementForm.observaciones}
+                  onChange={(e) => handleMovementFormChange("observaciones", e.target.value)}
+                ></textarea>
+              </div>
+
+              {/* Acciones */}
               <div className="modal-actions">
-                <button onClick={handleCloseModal} className="btn-secondary">Cancelar</button>
-                <button onClick={handleSubmit} className="btn-primary" disabled={isLoading}>
-                  {isLoading ? "Guardando..." : editingItem ? "Actualizar" : "Agregar"}
+                <button 
+                  type="button" 
+                  onClick={handleCloseMovementModal} 
+                  className="btn-secondary"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn-primary" 
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Registrando..." : "Registrar Movimiento"}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}

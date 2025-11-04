@@ -1,52 +1,74 @@
-// routes/manualSaleRoutes.js
+// ========================================
+// 🍔 MANUAL SALE ROUTES - DEFINITIVO
+// Frank Furt TPV System
+// ========================================
+// Rutas completas para el módulo de venta manual
+// ========================================
+
 const express = require('express');
 const router = express.Router();
 const manualSaleController = require('../controllers/manualSaleController');
-const authMiddleware = require('../middleware/authMiddleware');
 
-
-/**
- * GET /api/manualSale/mesas
- * Obtiene todas las mesas disponibles
- */
-router.get('/mesas',  manualSaleController.getMesas);
+// ==========================================
+// 📋 RUTAS DE CONSULTA
+// ==========================================
 
 /**
- * GET /api/manualSale/productos
- * Obtiene todos los productos disponibles del menú
+ * @route   GET /api/manualSale/mesas
+ * @desc    Obtener todas las mesas con su estado
+ * @access  Private (Administrador)
  */
-router.get('/productos',  manualSaleController.getProductos);
+router.get('/mesas', manualSaleController.getMesas);
 
 /**
- * POST /api/manualSale/registrar
- * Registra una nueva venta en mesa
- * Body: { idMesa: number, idSede: number, productos: Array }
+ * @route   GET /api/manualSale/productos
+ * @desc    Obtener todos los productos disponibles con stock
+ * @access  Private (Administrador)
  */
-router.post('/registrar',  manualSaleController.registrarVenta);
+router.get('/productos', manualSaleController.getProductos);
 
 /**
- * GET /api/manualSale/pedidos-pendientes
- * Obtiene todos los pedidos activos (pendientes o en preparación)
+ * @route   GET /api/manualSale/personalizaciones
+ * @desc    Obtener todas las opciones de personalización disponibles
+ * @access  Private (Administrador)
  */
-router.get('/pedidos-pendientes',  manualSaleController.getPedidosPendientes);
+router.get('/personalizaciones', manualSaleController.getPersonalizaciones);
 
 /**
- * GET /api/manualSale/pedido/:idPedido
- * Obtiene el detalle de un pedido específico
+ * @route   GET /api/manualSale/categorias
+ * @desc    Obtener todas las categorías activas
+ * @access  Private (Administrador)
  */
-router.get('/pedido/:idPedido',  manualSaleController.getDetallePedido);
+router.get('/categorias', manualSaleController.getCategorias);
 
 /**
- * POST /api/manualSale/pagar
- * Cierra un pedido y registra el pago
- * Body: { idPedido: number, metodoPago: string }
+ * @route   GET /api/manualSale/estadisticas
+ * @desc    Obtener estadísticas del día actual
+ * @access  Private (Administrador)
  */
-router.post('/pagar',  manualSaleController.procesarPago);
+router.get('/estadisticas', manualSaleController.getEstadisticas);
+
+// ==========================================
+// 📤 RUTAS DE ACCIÓN
+// ==========================================
 
 /**
- * GET /api/manualSale/categorias
- * Obtiene todas las categorías para filtrar productos
+ * @route   POST /api/manualSale/registrar
+ * @desc    Registrar una nueva venta en mesa CON SOPORTE DE PERSONALIZACIÓN
+ * @body    { 
+ *   idMesa, 
+ *   idSede, 
+ *   idUsuario,
+ *   productos: [{ 
+ *     idProducto, 
+ *     cantidad,
+ *     personalizaciones: [idPersonalizacion],
+ *     notas: "string opcional"
+ *   }],
+ *   observaciones: "observaciones generales del pedido"
+ * }
+ * @access  Private (Administrador)
  */
-router.get('/categorias',  manualSaleController.getCategorias);
+router.post('/registrar', manualSaleController.registrarVenta);
 
 module.exports = router;

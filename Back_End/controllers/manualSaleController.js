@@ -1,4 +1,11 @@
-// controllers/manualSaleController.js
+// ========================================
+// 🍔 MANUAL SALE CONTROLLER - DEFINITIVO
+// Frank Furt TPV System
+// ========================================
+// Versión final optimizada con personalización completa
+// Patrón: Igual que UsersCrud, MenuCrud, InventoryCrud
+// ========================================
+
 const db = require('../config/db');
 
 /**
@@ -12,7 +19,8 @@ const getMesas = async (req, res) => {
         idMesa, 
         numero, 
         estado,
-        idSede
+        idSede,
+        capacidad
       FROM mesa 
       WHERE idSede = 1
       ORDER BY 
@@ -24,12 +32,19 @@ const getMesas = async (req, res) => {
         numero
     `;
     const [mesas] = await db.query(query);
-    res.json(mesas);
+    
+    res.json({
+      success: true,
+      data: mesas,
+      total: mesas.length,
+      disponibles: mesas.filter(m => m.estado === 'disponible').length
+    });
   } catch (error) {
-    console.error('Error al obtener mesas:', error);
+    console.error('❌ Error getMesas:', error);
     res.status(500).json({ 
+      success: false,
       error: 'Error al cargar las mesas',
-      details: error.message 
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -58,18 +73,69 @@ const getProductos = async (req, res) => {
       ORDER BY c.nombre, p.nombre
     `;
     const [productos] = await db.query(query);
-    res.json(productos);
+    
+    res.json({
+      success: true,
+      data: productos,
+      total: productos.length
+    });
   } catch (error) {
-    console.error('Error al obtener productos:', error);
+    console.error('❌ Error getProductos:', error);
     res.status(500).json({ 
+      success: false,
       error: 'Error al cargar los productos',
-      details: error.message 
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
 /**
- * Obtiene todas las categorías activas
+ * 🆕 Obtiene todas las opciones de personalización disponibles AGRUPADAS
+ * @route GET /api/manualSale/personalizaciones
+ */
+const getPersonalizaciones = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        idPersonalizacion,
+        nombre,
+        descripcion,
+        tipo,
+        precio_adicional,
+        activo,
+        categoria
+      FROM personalizacionproducto
+      WHERE activo = 1
+      ORDER BY categoria, nombre
+    `;
+    const [personalizaciones] = await db.query(query);
+    
+    // Agrupar por categoría para mejor UX en el frontend
+    const agrupadas = personalizaciones.reduce((acc, p) => {
+      const cat = p.categoria || 'Otras';
+      if (!acc[cat]) acc[cat] = [];
+      acc[cat].push(p);
+      return acc;
+    }, {});
+    
+    res.json({
+      success: true,
+      data: personalizaciones,
+      agrupadas,
+      total: personalizaciones.length
+    });
+  } catch (error) {
+    console.error('❌ Error getPersonalizaciones:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Error al cargar las personalizaciones',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Obtiene todas las categorías activas con cantidad de productos
  * @route GET /api/manualSale/categorias
  */
 const getCategorias = async (req, res) => {
@@ -88,37 +154,62 @@ const getCategorias = async (req, res) => {
       ORDER BY c.nombre
     `;
     const [categorias] = await db.query(query);
-    res.json(categorias);
+    
+    res.json({
+      success: true,
+      data: categorias,
+      total: categorias.length
+    });
   } catch (error) {
-    console.error('Error al obtener categorías:', error);
+    console.error('❌ Error getCategorias:', error);
     res.status(500).json({ 
+      success: false,
       error: 'Error al cargar las categorías',
-      details: error.message 
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
 /**
- * Registra una nueva venta en mesa usando procedimiento almacenado
+ * 🔥 Registra una nueva venta en mesa CON PERSONALIZACIÓN COMPLETA
  * @route POST /api/manualSale/registrar
- * @body { idMesa, idSede, productos: [{ idProducto, cantidad }] }
+ * @body { 
+ *   idMesa, 
+ *   idSede, 
+ *   idUsuario,
+ *   productos: [{ 
+ *     idProducto, 
+ *     cantidad,
+ *     personalizaciones: [idPersonalizacion],
+ *     notas: "string opcional"
+ *   }],
+ *   observaciones: "observaciones generales del pedido"
+ * }
  */
 const registrarVenta = async (req, res) => {
   const connection = await db.getConnection();
   
   try {
-    const { idMesa, idSede = 1, productos } = req.body;
+    await connection.beginTransaction();
+    
+    const { idMesa, idSede = 1, idUsuario = 1, productos, observaciones = null } = req.body;
 
-    // Validaciones de entrada
+    // ==========================================
+    // 1️⃣ VALIDACIONES DE ENTRADA
+    // ==========================================
     if (!idMesa) {
+      await connection.rollback();
       return res.status(400).json({ 
+        success: false,
         error: 'Debe seleccionar una mesa',
         code: 'MESA_REQUIRED'
       });
     }
 
     if (!productos || productos.length === 0) {
+      await connection.rollback();
       return res.status(400).json({ 
+        success: false,
         error: 'El carrito está vacío',
         code: 'CART_EMPTY'
       });
@@ -133,40 +224,73 @@ const registrarVenta = async (req, res) => {
     );
 
     if (!productosValidos) {
+      await connection.rollback();
       return res.status(400).json({ 
-        error: 'Formato de productos inválido. Verifique cantidad y ID',
+        success: false,
+        error: 'Formato de productos inválido',
         code: 'INVALID_PRODUCTS'
       });
     }
 
-    // Verificar stock antes de procesar
-    const stockQuery = `
+    // ==========================================
+    // 2️⃣ VERIFICAR DISPONIBILIDAD DE MESA
+    // ==========================================
+    const [mesas] = await connection.query(
+      'SELECT idMesa, numero, estado FROM mesa WHERE idMesa = ?',
+      [idMesa]
+    );
+
+    if (mesas.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({
+        success: false,
+        error: 'Mesa no encontrada',
+        code: 'MESA_NOT_FOUND'
+      });
+    }
+
+    if (mesas[0].estado !== 'disponible') {
+      await connection.rollback();
+      return res.status(409).json({
+        success: false,
+        error: `La mesa ${mesas[0].numero} no está disponible`,
+        code: 'MESA_NO_DISPONIBLE'
+      });
+    }
+
+    // ==========================================
+    // 3️⃣ VERIFICAR STOCK DISPONIBLE
+    // ==========================================
+    const productosIds = productos.map(p => p.idProducto);
+    const [stockData] = await connection.query(`
       SELECT 
         i.idProducto,
         p.nombre,
+        p.precio,
         i.stockDisponible
       FROM inventario i
       INNER JOIN producto p ON i.idProducto = p.idProducto
       WHERE i.idSede = ? AND i.idProducto IN (?)
-    `;
-    
-    const productosIds = productos.map(p => p.idProducto);
-    const [stockData] = await connection.query(stockQuery, [idSede, productosIds]);
+    `, [idSede, productosIds]);
 
-    // Validar stock disponible
+    // Validar stock para cada producto
     for (const producto of productos) {
       const stock = stockData.find(s => s.idProducto === producto.idProducto);
       
       if (!stock) {
+        await connection.rollback();
         return res.status(400).json({
+          success: false,
           error: `Producto con ID ${producto.idProducto} no encontrado en inventario`,
           code: 'PRODUCT_NOT_FOUND'
         });
       }
 
       if (stock.stockDisponible < producto.cantidad) {
+        await connection.rollback();
         return res.status(400).json({
-          error: `Stock insuficiente para ${stock.nombre}. Disponible: ${stock.stockDisponible}, Solicitado: ${producto.cantidad}`,
+          success: false,
+          error: `Stock insuficiente para ${stock.nombre}`,
           code: 'INSUFFICIENT_STOCK',
           producto: stock.nombre,
           disponible: stock.stockDisponible,
@@ -175,281 +299,154 @@ const registrarVenta = async (req, res) => {
       }
     }
 
-    // Convertir productos a JSON string
-    const productosJson = JSON.stringify(productos);
-
-    // Llamar al procedimiento almacenado
-    const query = 'CALL sp_registrar_venta_mesa(?, ?, ?)';
-    const [result] = await connection.query(query, [idMesa, idSede, productosJson]);
-
-    // Extraer resultado del procedimiento
-    const pedidoCreado = result[0]?.[0];
-
-    if (!pedidoCreado || !pedidoCreado.idPedido) {
-      throw new Error('No se pudo crear el pedido');
+    // ==========================================
+    // 4️⃣ CALCULAR TOTAL DEL PEDIDO
+    // ==========================================
+    let totalPedido = 0;
+    
+    for (const producto of productos) {
+      const stock = stockData.find(s => s.idProducto === producto.idProducto);
+      let subtotal = stock.precio * producto.cantidad;
+      
+      // Agregar costo de personalizaciones si existen
+      if (producto.personalizaciones && producto.personalizaciones.length > 0) {
+        const [personalizacionesData] = await connection.query(`
+          SELECT idPersonalizacion, precio_adicional
+          FROM personalizacionproducto
+          WHERE idPersonalizacion IN (?) AND activo = 1
+        `, [producto.personalizaciones]);
+        
+        const costoPersonalizaciones = personalizacionesData.reduce(
+          (sum, p) => sum + (parseFloat(p.precio_adicional) || 0),
+          0
+        ) * producto.cantidad;
+        
+        subtotal += costoPersonalizaciones;
+      }
+      
+      totalPedido += subtotal;
     }
+
+    // ==========================================
+    // 5️⃣ CREAR PEDIDO PRINCIPAL
+    // ==========================================
+    const [pedidoResult] = await connection.query(`
+      INSERT INTO pedido (
+        idMesa, 
+        idSede, 
+        idUsuario, 
+        fecha, 
+        estado, 
+        total, 
+        tipo_pedido,
+        observaciones
+      ) VALUES (?, ?, ?, NOW(), 'pendiente', ?, 'mesa', ?)
+    `, [idMesa, idSede, idUsuario, totalPedido, observaciones]);
+
+    const idPedido = pedidoResult.insertId;
+
+    // ==========================================
+    // 6️⃣ INSERTAR PRODUCTOS Y PERSONALIZACIONES
+    // ==========================================
+    for (const producto of productos) {
+      const stock = stockData.find(s => s.idProducto === producto.idProducto);
+      const precioUnitario = stock.precio;
+      
+      // Calcular subtotal con personalizaciones
+      let subtotalProducto = precioUnitario * producto.cantidad;
+      
+      if (producto.personalizaciones && producto.personalizaciones.length > 0) {
+        const [personalizacionesData] = await connection.query(`
+          SELECT precio_adicional
+          FROM personalizacionproducto
+          WHERE idPersonalizacion IN (?)
+        `, [producto.personalizaciones]);
+        
+        const costoPersonalizaciones = personalizacionesData.reduce(
+          (sum, p) => sum + (parseFloat(p.precio_adicional) || 0),
+          0
+        ) * producto.cantidad;
+        
+        subtotalProducto += costoPersonalizaciones;
+      }
+      
+      // Insertar en pedido_producto
+      const [productoResult] = await connection.query(`
+        INSERT INTO pedido_producto (
+          idPedido,
+          idProducto,
+          cantidad,
+          precio_unitario,
+          subtotal,
+          notas
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `, [
+        idPedido,
+        producto.idProducto,
+        producto.cantidad,
+        precioUnitario,
+        subtotalProducto,
+        producto.notas || null
+      ]);
+      
+      const idPedidoProducto = productoResult.insertId;
+      
+      // Insertar personalizaciones si existen
+      if (producto.personalizaciones && producto.personalizaciones.length > 0) {
+        for (const idPersonalizacion of producto.personalizaciones) {
+          await connection.query(`
+            INSERT INTO pedido_personalizacion (
+              idPedidoProducto,
+              idPersonalizacion
+            ) VALUES (?, ?)
+          `, [idPedidoProducto, idPersonalizacion]);
+        }
+      }
+      
+      // Descontar del inventario
+      await connection.query(`
+        UPDATE inventario 
+        SET stockDisponible = stockDisponible - ?
+        WHERE idProducto = ? AND idSede = ?
+      `, [producto.cantidad, producto.idProducto, idSede]);
+    }
+
+    // ==========================================
+    // 7️⃣ ACTUALIZAR ESTADO DE LA MESA
+    // ==========================================
+    await connection.query(
+      "UPDATE mesa SET estado = 'ocupada' WHERE idMesa = ?",
+      [idMesa]
+    );
+
+    // ==========================================
+    // 8️⃣ COMMIT Y RESPUESTA EXITOSA
+    // ==========================================
+    await connection.commit();
 
     res.status(201).json({
       success: true,
-      message: 'Pedido registrado exitosamente',
+      message: '✅ Pedido registrado exitosamente',
       data: {
-        idPedido: pedidoCreado.idPedido,
-        total: pedidoCreado.total,
-        idMesa: idMesa,
+        idPedido,
+        total: totalPedido,
+        idMesa,
+        numeroMesa: mesas[0].numero,
         cantidadProductos: productos.length,
-        cantidadItems: productos.reduce((sum, p) => sum + p.cantidad, 0)
+        cantidadItems: productos.reduce((sum, p) => sum + p.cantidad, 0),
+        fecha: new Date().toISOString()
       }
     });
 
   } catch (error) {
-    console.error('Error al registrar venta:', error);
+    await connection.rollback();
+    console.error('❌ Error registrarVenta:', error);
     
-    // Manejar errores específicos del procedimiento
-    if (error.message.includes('Mesa no disponible')) {
-      return res.status(409).json({ 
-        error: 'La mesa seleccionada no está disponible',
-        code: 'MESA_NO_DISPONIBLE'
-      });
-    }
-    
-    if (error.message.includes('Stock insuficiente')) {
-      return res.status(400).json({ 
-        error: 'Stock insuficiente para algunos productos',
-        code: 'INSUFFICIENT_STOCK'
-      });
-    }
-
-    if (error.message.includes('Mesa no encontrada')) {
-      return res.status(404).json({ 
-        error: 'Mesa no encontrada',
-        code: 'MESA_NOT_FOUND'
-      });
-    }
-
     res.status(500).json({ 
+      success: false,
       error: 'Error al registrar el pedido',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       code: 'SERVER_ERROR'
-    });
-  } finally {
-    if (connection) {
-      connection.release();
-    }
-  }
-};
-
-/**
- * Obtiene todos los pedidos activos (pendientes o en preparación)
- * @route GET /api/manualSale/pedidos-pendientes
- */
-const getPedidosPendientes = async (req, res) => {
-  try {
-    const query = `
-      SELECT 
-        p.idPedido,
-        p.fecha,
-        p.estado,
-        p.total,
-        p.observaciones,
-        m.numero as numeroMesa,
-        m.idMesa,
-        m.estado as estadoMesa,
-        s.nombre as sede,
-        s.idSede,
-        COUNT(DISTINCT pp.idProducto) as cantidadProductos,
-        SUM(pp.cantidad) as cantidadItems
-      FROM pedido p
-      INNER JOIN mesa m ON p.idMesa = m.idMesa
-      INNER JOIN sede s ON p.idSede = s.idSede
-      LEFT JOIN pedido_producto pp ON p.idPedido = pp.idPedido
-      WHERE p.estado IN ('pendiente', 'en preparación', 'listo')
-        AND p.tipo_pedido = 'mesa'
-      GROUP BY p.idPedido, p.fecha, p.estado, p.total, p.observaciones,
-               m.numero, m.idMesa, m.estado, s.nombre, s.idSede
-      ORDER BY p.fecha DESC
-    `;
-    const [pedidos] = await db.query(query);
-    res.json(pedidos);
-  } catch (error) {
-    console.error('Error al obtener pedidos pendientes:', error);
-    res.status(500).json({ 
-      error: 'Error al cargar los pedidos pendientes',
-      details: error.message 
-    });
-  }
-};
-
-/**
- * Obtiene el detalle completo de un pedido específico
- * @route GET /api/manualSale/pedido/:idPedido
- */
-const getDetallePedido = async (req, res) => {
-  try {
-    const { idPedido } = req.params;
-
-    if (!idPedido || isNaN(idPedido)) {
-      return res.status(400).json({ 
-        error: 'ID de pedido inválido',
-        code: 'INVALID_ID'
-      });
-    }
-
-    // Obtener información del pedido
-    const queryPedido = `
-      SELECT 
-        p.idPedido,
-        p.fecha,
-        p.estado,
-        p.total,
-        p.observaciones,
-        p.tipo_pedido,
-        m.numero as numeroMesa,
-        m.idMesa,
-        m.estado as estadoMesa,
-        s.nombre as sede,
-        s.idSede,
-        c.nombre as cliente,
-        c.idCliente
-      FROM pedido p
-      LEFT JOIN mesa m ON p.idMesa = m.idMesa
-      INNER JOIN sede s ON p.idSede = s.idSede
-      INNER JOIN cliente c ON p.idCliente = c.idCliente
-      WHERE p.idPedido = ?
-    `;
-
-    // Obtener productos del pedido
-    const queryProductos = `
-      SELECT 
-        pp.idProducto,
-        pr.nombre,
-        pp.cantidad,
-        pp.precio_unitario,
-        pp.subtotal,
-        c.nombre as categoria
-      FROM pedido_producto pp
-      INNER JOIN producto pr ON pp.idProducto = pr.idProducto
-      INNER JOIN categoria c ON pr.idCategoria = c.id
-      WHERE pp.idPedido = ?
-      ORDER BY c.nombre, pr.nombre
-    `;
-
-    const [[pedido]] = await db.query(queryPedido, [idPedido]);
-    const [productos] = await db.query(queryProductos, [idPedido]);
-
-    if (!pedido) {
-      return res.status(404).json({ 
-        error: 'Pedido no encontrado',
-        code: 'PEDIDO_NOT_FOUND'
-      });
-    }
-
-    // Calcular resumen
-    const resumen = {
-      cantidadProductos: productos.length,
-      cantidadItems: productos.reduce((sum, p) => sum + p.cantidad, 0),
-      subtotal: productos.reduce((sum, p) => sum + parseFloat(p.subtotal), 0)
-    };
-
-    res.json({
-      ...pedido,
-      productos,
-      resumen
-    });
-
-  } catch (error) {
-    console.error('Error al obtener detalle del pedido:', error);
-    res.status(500).json({ 
-      error: 'Error al cargar el detalle del pedido',
-      details: error.message 
-    });
-  }
-};
-
-/**
- * Procesa el pago de un pedido y libera la mesa
- * @route POST /api/manualSale/pagar
- * @body { idPedido, metodoPago }
- */
-const procesarPago = async (req, res) => {
-  const connection = await db.getConnection();
-  
-  try {
-    const { idPedido, metodoPago = 'efectivo' } = req.body;
-
-    // Validaciones
-    if (!idPedido || isNaN(idPedido)) {
-      return res.status(400).json({ 
-        error: 'ID de pedido inválido',
-        code: 'INVALID_ID'
-      });
-    }
-
-    const metodosValidos = ['efectivo', 'tarjeta', 'transferencia'];
-    const metodoNormalizado = metodoPago.toLowerCase();
-    
-    if (!metodosValidos.includes(metodoNormalizado)) {
-      return res.status(400).json({ 
-        error: `Método de pago inválido. Use: ${metodosValidos.join(', ')}`,
-        code: 'INVALID_PAYMENT_METHOD'
-      });
-    }
-
-    // Verificar que el pedido existe y no está pagado
-    const [pedidos] = await connection.query(
-      'SELECT idPedido, estado, total FROM pedido WHERE idPedido = ?',
-      [idPedido]
-    );
-
-    if (pedidos.length === 0) {
-      return res.status(404).json({ 
-        error: 'Pedido no encontrado',
-        code: 'PEDIDO_NOT_FOUND'
-      });
-    }
-
-    if (pedidos[0].estado === 'entregado') {
-      return res.status(409).json({ 
-        error: 'El pedido ya ha sido pagado y cerrado',
-        code: 'ALREADY_PAID'
-      });
-    }
-
-    // Llamar al procedimiento almacenado
-    const query = 'CALL sp_cerrar_pedido_pagado(?, ?)';
-    await connection.query(query, [idPedido, metodoNormalizado]);
-
-    res.json({
-      success: true,
-      message: 'Pedido pagado y cerrado exitosamente',
-      data: {
-        idPedido,
-        metodoPago: metodoNormalizado,
-        monto: pedidos[0].total,
-        fechaPago: new Date().toISOString()
-      }
-    });
-
-  } catch (error) {
-    console.error('Error al procesar pago:', error);
-
-    if (error.message.includes('Pedido no encontrado')) {
-      return res.status(404).json({ 
-        error: 'Pedido no encontrado',
-        code: 'PEDIDO_NOT_FOUND'
-      });
-    }
-
-    if (error.message.includes('ya está cerrado')) {
-      return res.status(409).json({ 
-        error: 'El pedido ya ha sido pagado',
-        code: 'ALREADY_PAID'
-      });
-    }
-
-    res.status(500).json({ 
-      error: 'Error al procesar el pago',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      code: 'PAYMENT_ERROR'
     });
   } finally {
     if (connection) {
@@ -470,20 +467,26 @@ const getEstadisticas = async (req, res) => {
         COALESCE(SUM(p.total), 0) as ventasTotalesHoy,
         COUNT(DISTINCT CASE WHEN p.estado IN ('pendiente', 'en preparación') THEN p.idPedido END) as pedidosActivos,
         COUNT(DISTINCT CASE WHEN p.estado = 'entregado' THEN p.idPedido END) as pedidosCompletados,
-        (SELECT COUNT(*) FROM mesa WHERE estado = 'disponible') as mesasDisponibles,
-        (SELECT COUNT(*) FROM mesa WHERE estado = 'ocupada') as mesasOcupadas
+        (SELECT COUNT(*) FROM mesa WHERE estado = 'disponible' AND idSede = 1) as mesasDisponibles,
+        (SELECT COUNT(*) FROM mesa WHERE estado = 'ocupada' AND idSede = 1) as mesasOcupadas
       FROM pedido p
       WHERE DATE(p.fecha) = CURDATE()
         AND p.tipo_pedido = 'mesa'
+        AND p.idSede = 1
     `;
     
     const [stats] = await db.query(query);
-    res.json(stats[0] || {});
+    
+    res.json({
+      success: true,
+      data: stats[0] || {}
+    });
   } catch (error) {
-    console.error('Error al obtener estadísticas:', error);
+    console.error('❌ Error getEstadisticas:', error);
     res.status(500).json({ 
+      success: false,
       error: 'Error al cargar estadísticas',
-      details: error.message 
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -491,10 +494,8 @@ const getEstadisticas = async (req, res) => {
 module.exports = {
   getMesas,
   getProductos,
-  registrarVenta,
-  getPedidosPendientes,
-  getDetallePedido,
-  procesarPago,
+  getPersonalizaciones,
   getCategorias,
+  registrarVenta,
   getEstadisticas
 };

@@ -1,55 +1,67 @@
+// UsersCrud.jsx - OPTIMIZADO con mejoras de UX/UI
 import React, { useState, useEffect } from 'react';
-import { Search, Edit, Trash2, Download, Eye, Filter, X, Save, UserPlus, Users, UserCheck, UserX, Clock } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Filter, Download, Eye, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 import axios from 'axios';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import './UsersCrud.css';
 
-const API_BASE_URL = 'http://localhost:3006/api/users'; // Ajusta el puerto según tu backend
+const API_BASE_URL = 'http://localhost:3006/api/users';
 
-const UsersCRUD = () => {
+const UsersCrud = () => {
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('Todos');
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState('create');
-  const [currentUser, setCurrentUser] = useState(null);
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
-
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [editingUser, setEditingUser] = useState(null);
+  const [viewMode, setViewMode] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
+  
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
     location: '',
-    hobby: '', // Este campo no se guarda en la DB por ahora
+    hobby: '',
     status: 'active'
   });
 
-  // Función para obtener los datos de la API
+  const statusOptions = ['Todos', 'active', 'inactive'];
+
+  // ===================================================================
+  // 🔄 OBTENER USUARIOS DEL BACKEND
+  // ===================================================================
   const fetchUsers = async () => {
     setLoading(true);
-    setError(null);
     try {
       const response = await axios.get(API_BASE_URL);
       setUsers(response.data);
+      toast.success(`✅ ${response.data.length} usuarios cargados`, {
+        position: "top-right",
+        autoClose: 2000
+      });
     } catch (err) {
-      setError('Error al cargar los usuarios. Por favor, intente de nuevo más tarde.');
-      console.error('Error fetching users:', err);
+      console.error('Error al cargar usuarios:', err);
+      toast.error('❌ Error al cargar usuarios. Intente nuevamente.', {
+        position: "top-right",
+        autoClose: 3000
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // Cargar datos al montar el componente
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  // Filtrar y buscar usuarios
+  // ===================================================================
+  // 🔍 FILTRAR USUARIOS
+  // ===================================================================
   const filteredUsers = users.filter(user => {
     const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
     const matchesSearch = 
@@ -57,52 +69,138 @@ const UsersCRUD = () => {
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (user.location && user.location.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
+    const matchesStatus = selectedStatus === 'Todos' || user.status === selectedStatus;
     
     return matchesSearch && matchesStatus;
   });
 
-  // Ordenar usuarios
-  const sortedUsers = [...filteredUsers].sort((a, b) => {
-    if (!sortConfig.key) return 0;
-    
-    const aValue = a[sortConfig.key];
-    const bValue = b[sortConfig.key];
-    
-    if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-    return 0;
-  });
+  // ===================================================================
+  // ✅ VALIDACIÓN DE FORMULARIO EN TIEMPO REAL
+  // ===================================================================
+  const validateField = (name, value) => {
+    let error = '';
 
-  // Paginación
-  const totalPages = Math.ceil(sortedUsers.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedUsers = sortedUsers.slice(startIndex, startIndex + itemsPerPage);
+    switch (name) {
+      case 'firstName':
+        if (!value.trim()) {
+          error = 'El nombre es obligatorio';
+        } else if (value.trim().length < 2) {
+          error = 'El nombre debe tener al menos 2 caracteres';
+        }
+        break;
+      case 'lastName':
+        if (!value.trim()) {
+          error = 'El apellido es obligatorio';
+        } else if (value.trim().length < 2) {
+          error = 'El apellido debe tener al menos 2 caracteres';
+        }
+        break;
+      case 'email':
+        if (!value.trim()) {
+          error = 'El email es obligatorio';
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          error = 'Ingrese un email válido';
+        }
+        break;
+      case 'phone':
+        if (value && !/^\d{10,}$/.test(value.replace(/[-\s]/g, ''))) {
+          error = 'Ingrese un teléfono válido (mínimo 10 dígitos)';
+        }
+        break;
+      default:
+        break;
+    }
 
-  const handleSort = (key) => {
-    setSortConfig(prev => ({
-      key,
-      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    setFormErrors(prev => ({
+      ...prev,
+      [name]: error
     }));
+
+    return error === '';
   };
 
-  const handleCreate = () => {
-    setModalMode('create');
-    setFormData({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      location: '',
-      hobby: '',
-      status: 'active'
-    });
-    setShowModal(true);
+  const validateForm = () => {
+    const errors = {};
+    
+    if (!formData.firstName.trim()) {
+      errors.firstName = 'El nombre es obligatorio';
+    } else if (formData.firstName.trim().length < 2) {
+      errors.firstName = 'El nombre debe tener al menos 2 caracteres';
+    }
+
+    if (!formData.lastName.trim()) {
+      errors.lastName = 'El apellido es obligatorio';
+    } else if (formData.lastName.trim().length < 2) {
+      errors.lastName = 'El apellido debe tener al menos 2 caracteres';
+    }
+
+    if (!formData.email.trim()) {
+      errors.email = 'El email es obligatorio';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Ingrese un email válido';
+    }
+
+    if (formData.phone && !/^\d{10,}$/.test(formData.phone.replace(/[-\s]/g, ''))) {
+      errors.phone = 'Ingrese un teléfono válido (mínimo 10 dígitos)';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
+  // ===================================================================
+  // 💾 CREAR / ACTUALIZAR USUARIO
+  // ===================================================================
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      toast.error('❌ Por favor corrija los errores en el formulario', {
+        position: "top-right",
+        autoClose: 3000
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (editingUser) {
+        await axios.put(`${API_BASE_URL}/${editingUser.id}`, formData);
+        toast.success('✅ Usuario actualizado exitosamente', {
+          position: "top-right",
+          autoClose: 3000,
+          icon: <CheckCircle />
+        });
+      } else {
+        await axios.post(API_BASE_URL, formData);
+        toast.success('✅ Usuario creado exitosamente', {
+          position: "top-right",
+          autoClose: 3000,
+          icon: <CheckCircle />
+        });
+      }
+      await fetchUsers();
+      handleCloseModal();
+    } catch (err) {
+      console.error('Error al guardar usuario:', err);
+      const errorMessage = err.response?.data?.message || 'Error al guardar usuario';
+      toast.error(`❌ ${errorMessage}`, {
+        position: "top-right",
+        autoClose: 4000,
+        icon: <AlertCircle />
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ===================================================================
+  // ✏️ EDITAR USUARIO
+  // ===================================================================
   const handleEdit = (user) => {
-    setModalMode('edit');
-    setCurrentUser(user);
+    setEditingUser(user);
+    setViewMode(false);
+    setFormErrors({});
     setFormData({
       firstName: user.firstName,
       lastName: user.lastName,
@@ -115,535 +213,468 @@ const UsersCRUD = () => {
     setShowModal(true);
   };
 
+  // ===================================================================
+  // 👁️ VER DETALLES
+  // ===================================================================
   const handleView = (user) => {
-    setModalMode('view');
-    setCurrentUser(user);
+    setEditingUser(user);
+    setViewMode(true);
     setShowModal(true);
   };
 
-  const handleDelete = async (userId) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
-      try {
-        await axios.delete(`${API_BASE_URL}/${userId}`);
-        setUsers(users.filter(user => user.id !== userId));
-      } catch (err) {
-        setError('Error al eliminar el usuario. Intente de nuevo.');
-        console.error('Error deleting user:', err);
-      }
-    }
+  // ===================================================================
+  // 🗑️ ELIMINAR USUARIO (CON CONFIRMACIÓN)
+  // ===================================================================
+  const handleDeleteClick = (user) => {
+    setUserToDelete(user);
+    setShowDeleteModal(true);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
+  const confirmDelete = async () => {
+    if (!userToDelete) return;
 
+    setLoading(true);
     try {
-      if (modalMode === 'create') {
-        const response = await axios.post(API_BASE_URL, formData);
-        setUsers([...users, response.data]);
-      } else if (modalMode === 'edit') {
-        const response = await axios.put(`${API_BASE_URL}/${currentUser.id}`, formData);
-        setUsers(users.map(user => 
-          user.id === currentUser.id 
-            ? { ...user, ...response.data }
-            : user
-        ));
-      }
-      setShowModal(false);
+      await axios.delete(`${API_BASE_URL}/${userToDelete.id}`);
+      setUsers(prev => prev.filter(user => user.id !== userToDelete.id));
+      toast.success('✅ Usuario eliminado exitosamente', {
+        position: "top-right",
+        autoClose: 3000
+      });
+      setShowDeleteModal(false);
+      setUserToDelete(null);
     } catch (err) {
-      setError('Error al guardar el usuario. Verifique los datos.');
-      console.error('Error saving user:', err);
+      console.error('Error al eliminar usuario:', err);
+      const errorMessage = err.response?.data?.message || 'Error al eliminar usuario';
+      toast.error(`❌ ${errorMessage}`, {
+        position: "top-right",
+        autoClose: 4000
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDownloadCSV = () => {
-    const headers = ['ID', 'Nombre', 'Apellido', 'Email', 'Teléfono', 'Ubicación', 'Hobby', 'Estado', 'Fecha Creación'];
-    const csvContent = [
-      headers.join(','),
-      ...filteredUsers.map(user => [
-        user.id,
-        `"${user.firstName}"`,
-        `"${user.lastName}"`,
-        user.email,
-        `"${user.phone}"`,
-        `"${user.location}"`,
-        `"${user.hobby}"`,
-        user.status,
-        user.dateCreated
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `usuarios_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setUserToDelete(null);
   };
 
-  const getStatusBadge = (status) => {
-    const statusConfig = {
-      active: { label: 'Activo', icon: UserCheck, className: 'status-active' },
-      inactive: { label: 'Inactivo', icon: UserX, className: 'status-inactive' },
-      pending: { label: 'Pendiente', icon: Clock, className: 'status-pending' }
-    };
-    
-    const config = statusConfig[status];
-    const Icon = config.icon;
-    
-    return (
-      <span className={`status-badge ${config.className}`}>
-        <Icon size={14} />
-        {config.label}
-      </span>
-    );
+  // ===================================================================
+  // ❌ CERRAR MODAL
+  // ===================================================================
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditingUser(null);
+    setViewMode(false);
+    setFormErrors({});
+    setFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      location: '',
+      hobby: '',
+      status: 'active'
+    });
   };
 
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
+  // ===================================================================
+  // 📥 EXPORTAR CSV
+  // ===================================================================
+  const handleExport = () => {
+    try {
+      const csvContent = [
+        ['ID', 'Nombre', 'Apellido', 'Email', 'Teléfono', 'Ubicación', 'Hobby', 'Estado', 'Fecha'],
+        ...filteredUsers.map(user => [
+          user.id,
+          `"${user.firstName}"`,
+          `"${user.lastName}"`,
+          user.email,
+          user.phone,
+          `"${user.location}"`,
+          `"${user.hobby || ''}"`,
+          user.status === 'active' ? 'Activo' : 'Inactivo',
+          user.dateCreated
+        ])
+      ].map(row => row.join(',')).join('\n');
 
-    const pages = [];
-    const maxVisiblePages = 5;
-    
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
-    if (endPage - startPage + 1 < maxVisiblePages) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `usuarios_frank_furt_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('✅ CSV exportado exitosamente', {
+        position: "top-right",
+        autoClose: 2000
+      });
+    } catch (err) {
+      console.error('Error al exportar CSV:', err);
+      toast.error('❌ Error al exportar CSV', {
+        position: "top-right",
+        autoClose: 3000
+      });
     }
-
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(
-        <button
-          key={i}
-          className={`pagination-btn ${currentPage === i ? 'active' : ''}`}
-          onClick={() => setCurrentPage(i)}
-        >
-          {i}
-        </button>
-      );
-    }
-
-    return (
-      <div className="pagination">
-        <button
-          className="pagination-btn"
-          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-          disabled={currentPage === 1}
-        >
-          Anterior
-        </button>
-        {pages}
-        <button
-          className="pagination-btn"
-          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-          disabled={currentPage === totalPages}
-        >
-          Siguiente
-        </button>
-      </div>
-    );
   };
 
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Cargando usuarios...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="error-message-container">
-        <p className="error-message">{error}</p>
-        <button onClick={fetchUsers}>Reintentar</button>
-      </div>
-    );
-  }
-
+  // ===================================================================
+  // 🎨 RENDERIZADO
+  // ===================================================================
   return (
-    <div className="crud-container">
+    <div className="menu-crud">
+      <ToastContainer />
+
       {/* Header */}
-      <div className="crud-header">
-        <div className="header-content">
-          <div className="header-left">
-            <div className="header-icon">
-              <Users size={32} />
-            </div>
-            <div>
-              <h1 className="page-title">Gestión de Usuarios</h1>
-              <p className="page-subtitle">Administra y gestiona todos los usuarios del sistema</p>
-            </div>
-          </div>
-          <div className="header-actions">
-            <button className="btn btn-primary" onClick={handleCreate}>
-              <UserPlus size={20} />
-              Nuevo Usuario
-            </button>
-          </div>
+      <div className="header-dash">
+        <div className="header-title-invent">
+          <h1>Gestión de Usuarios</h1>
+          <p>Administra los usuarios de Frank Furt</p>
         </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon total">
-            <Users size={24} />
-          </div>
-          <div className="stat-content">
-            <div className="stat-number">{users.length}</div>
-            <div className="stat-label">Total Usuarios</div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon active">
-            <UserCheck size={24} />
-          </div>
-          <div className="stat-content">
-            <div className="stat-number">{users.filter(u => u.status === 'active').length}</div>
-            <div className="stat-label">Activos</div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon pending">
-            <Clock size={24} />
-          </div>
-          <div className="stat-content">
-            <div className="stat-number">{users.filter(u => u.status === 'pending').length}</div>
-            <div className="stat-label">Pendientes</div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon filtered">
-            <Filter size={24} />
-          </div>
-          <div className="stat-content">
-            <div className="stat-number">{filteredUsers.length}</div>
-            <div className="stat-label">Resultados</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Toolbar */}
-      <div className="crud-toolbar">
-        <div className="toolbar-left">
-          <div className="search-container">
-            <Search className="search-icon" size={20} />
-            <input
-              type="text"
-              placeholder="Buscar usuarios por nombre, email o ubicación..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
-          
-          <div className="filter-container">
-            <Filter className="filter-icon" size={18} />
-            <select 
-              value={statusFilter} 
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="filter-select"
-            >
-              <option value="all">Todos los estados</option>
-              <option value="active">Activos</option>
-              <option value="inactive">Inactivos</option>
-              {/* <option value="pending">Pendientes</option> */} {/* Tu DB no tiene 'pending' para clientes */}
-            </select>
-          </div>
-        </div>
-
-        <div className="toolbar-right">
-          <button className="btn btn-secondary" onClick={handleDownloadCSV}>
-            <Download size={18} />
+        <div className="header-actions-invent">
+          <button 
+            className="btn-refresh" 
+            onClick={fetchUsers}
+            disabled={loading}
+          >
+            <RefreshCw size={20} className={loading ? 'spinning' : ''} />
+            Actualizar
+          </button>
+          <button className="btn-export" onClick={handleExport}>
+            <Download size={20} />
             Exportar CSV
+          </button>
+          <button className="btn-primary" onClick={() => setShowModal(true)}>
+            <Plus size={20} />
+            Agregar Usuario
           </button>
         </div>
       </div>
 
-      {/* Table */}
+      {/* Filtros */}
+      <div className="filters">
+        <div className="search-container">
+          <Search className="search-icon" size={20} />
+          <input
+            type="text"
+            placeholder="Buscar por nombre, email o ubicación..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+        </div>
+        <div className="filter-container">
+          <Filter size={20} />
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="filter-select"
+          >
+            {statusOptions.map(status => (
+              <option key={status} value={status}>
+                {status === 'Todos' ? 'Todos' : status === 'active' ? 'Activos' : 'Inactivos'}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Tabla */}
       <div className="table-container">
-        <div className="table-wrapper">
-          <table className="users-table">
+        {loading && users.length === 0 ? (
+          <div className="loading-state">
+            <RefreshCw className="spinning" size={40} />
+            <p>Cargando usuarios...</p>
+          </div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="empty-state">
+            <AlertCircle size={48} />
+            <h3>No se encontraron usuarios</h3>
+            <p>Intenta ajustar los filtros o crea un nuevo usuario</p>
+            <button className="btn-primary" onClick={() => setShowModal(true)}>
+              <Plus size={20} />
+              Crear primer usuario
+            </button>
+          </div>
+        ) : (
+          <table className="menu-table">
             <thead>
               <tr>
-                <th onClick={() => handleSort('id')} className="sortable">
-                  ID {sortConfig.key === 'id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
+                <th>ID</th>
                 <th>Usuario</th>
-                <th onClick={() => handleSort('email')} className="sortable">
-                  Email {sortConfig.key === 'email' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
+                <th>Email</th>
                 <th>Teléfono</th>
-                <th onClick={() => handleSort('location')} className="sortable">
-                  Ubicación {sortConfig.key === 'location' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th>Hobby</th>
-                <th onClick={() => handleSort('status')} className="sortable">
-                  Estado {sortConfig.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
+                <th>Ubicación</th>
+                <th>Estado</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {paginatedUsers.length > 0 ? (
-                paginatedUsers.map(user => (
-                  <tr key={user.id} className="table-row">
-                    <td className="user-id">#{user.id}</td>
-                    <td>
-                      <div className="user-info">
-                        <div className="user-avatar">{user.avatar}</div>
-                        <div className="user-details">
-                          <div className="user-name">{user.firstName} {user.lastName}</div>
-                          <div className="user-date">Registrado: {user.dateCreated}</div>
-                        </div>
+              {filteredUsers.map(user => (
+                <tr key={user.id}>
+                  <td>{user.id}</td>
+                  <td>
+                    <div className="product-info">
+                      <div className="user-avatar">
+                        {user.avatar || user.firstName.charAt(0) + user.lastName.charAt(0)}
                       </div>
-                    </td>
-                    <td className="user-email">{user.email}</td>
-                    <td className="user-phone">{user.phone}</td>
-                    <td className="user-location">{user.location}</td>
-                    <td className="user-hobby">{user.hobby}</td>
-                    <td>{getStatusBadge(user.status)}</td>
-                    <td>
-                      <div className="actions-container">
-                        <button 
-                          className="action-btn view-btn" 
-                          onClick={() => handleView(user)}
-                          title="Ver detalles"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        <button 
-                          className="action-btn edit-btn" 
-                          onClick={() => handleEdit(user)}
-                          title="Editar"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button 
-                          className="action-btn delete-btn" 
-                          onClick={() => handleDelete(user.id)}
-                          title="Eliminar"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                      <div>
+                        <div className="product-name">{user.firstName} {user.lastName}</div>
+                        <div className="product-description">{user.hobby || 'Sin hobby'}</div>
                       </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="8">
-                    <div className="empty-state">
-                      <div className="empty-icon">
-                        <Users size={64} />
-                      </div>
-                      <h3>No se encontraron usuarios</h3>
-                      <p>Intenta ajustar tus filtros de búsqueda o crear un nuevo usuario.</p>
-                      <button className="btn btn-primary" onClick={handleCreate}>
-                        <UserPlus size={20} />
-                        Crear primer usuario
+                    </div>
+                  </td>
+                  <td>{user.email}</td>
+                  <td>{user.phone || '-'}</td>
+                  <td>{user.location || '-'}</td>
+                  <td>
+                    <span className={`status-badge status-${user.status.toLowerCase()}`}>
+                      {user.status === 'active' ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="actions">
+                      <button 
+                        className="btn-action btn-view" 
+                        onClick={() => handleView(user)}
+                        title="Ver detalles"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button 
+                        className="btn-action btn-edit" 
+                        onClick={() => handleEdit(user)}
+                        title="Editar usuario"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button 
+                        className="btn-action btn-delete" 
+                        onClick={() => handleDeleteClick(user)}
+                        title="Eliminar usuario"
+                      >
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </td>
                 </tr>
-              )}
+              ))}
             </tbody>
           </table>
-        </div>
-
-        {/* Pagination */}
-        {renderPagination()}
+        )}
       </div>
 
-      {/* Modal */}
+      {/* Modal de Edición/Creación/Vista */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">
-                {modalMode === 'create' && (
-                  <>
-                    <UserPlus size={24} />
-                    Crear Nuevo Usuario
-                  </>
-                )}
-                {modalMode === 'edit' && (
-                  <>
-                    <Edit size={24} />
-                    Editar Usuario
-                  </>
-                )}
-                {modalMode === 'view' && (
-                  <>
-                    <Eye size={24} />
-                    Detalles del Usuario
-                  </>
-                )}
+        <div className="modal-overlay" onClick={handleCloseModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header-invent">
+              <h2>
+                {viewMode 
+                  ? 'Detalles del Usuario' 
+                  : editingUser 
+                    ? 'Editar Usuario' 
+                    : 'Agregar Usuario'
+                }
               </h2>
-              <button 
-                className="modal-close" 
-                onClick={() => setShowModal(false)}
-              >
-                <X size={24} />
-              </button>
+              <button className="modal-close" onClick={handleCloseModal}>×</button>
             </div>
-
-            {modalMode === 'view' ? (
-              <div className="modal-body">
-                <div className="user-profile">
-                  <div className="profile-avatar">
-                    {currentUser.avatar}
+            
+            {viewMode ? (
+              // Vista de solo lectura
+              <div className="modal-form">
+                <div className="user-view-container">
+                  <div className="user-view-avatar">
+                    {editingUser.avatar || editingUser.firstName.charAt(0) + editingUser.lastName.charAt(0)}
                   </div>
-                  <div className="profile-info">
-                    <h3>{currentUser.firstName} {currentUser.lastName}</h3>
-                    {getStatusBadge(currentUser.status)}
+                  <div className="user-view-details">
+                    <div className="view-group">
+                      <label>Nombre Completo:</label>
+                      <p>{editingUser.firstName} {editingUser.lastName}</p>
+                    </div>
+                    <div className="view-group">
+                      <label>Email:</label>
+                      <p>{editingUser.email}</p>
+                    </div>
+                    <div className="view-group">
+                      <label>Teléfono:</label>
+                      <p>{editingUser.phone || 'No especificado'}</p>
+                    </div>
+                    <div className="view-group">
+                      <label>Ubicación:</label>
+                      <p>{editingUser.location || 'No especificada'}</p>
+                    </div>
+                    <div className="view-group">
+                      <label>Hobby:</label>
+                      <p>{editingUser.hobby || 'Sin hobby'}</p>
+                    </div>
+                    <div className="view-group">
+                      <label>Estado:</label>
+                      <span className={`status-badge status-${editingUser.status.toLowerCase()}`}>
+                        {editingUser.status === 'active' ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </div>
+                    <div className="view-group">
+                      <label>Fecha de Registro:</label>
+                      <p>{editingUser.dateCreated}</p>
+                    </div>
                   </div>
                 </div>
-                
-                <div className="user-details-grid">
-                  <div className="detail-item">
-                    <span className="detail-label">ID:</span>
-                    <span className="detail-value">#{currentUser.id}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">Email:</span>
-                    <span className="detail-value">{currentUser.email}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">Teléfono:</span>
-                    <span className="detail-value">{currentUser.phone}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">Ubicación:</span>
-                    <span className="detail-value">{currentUser.location}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">Hobby:</span>
-                    <span className="detail-value">{currentUser.hobby}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">Fecha de Registro:</span>
-                    <span className="detail-value">{currentUser.dateCreated}</span>
-                  </div>
+                <div className="modal-actions">
+                  <button type="button" className="btn-secondary" onClick={handleCloseModal}>
+                    Cerrar
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn-primary" 
+                    onClick={() => {
+                      setViewMode(false);
+                      handleEdit(editingUser);
+                    }}
+                  >
+                    <Edit size={18} />
+                    Editar
+                  </button>
                 </div>
               </div>
             ) : (
-              <form className="modal-body" onSubmit={handleSubmit}>
-                <div className="form-container">
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="firstName" className="form-label">Nombre *</label>
-                      <input
-                        type="text"
-                        id="firstName"
-                        value={formData.firstName}
-                        onChange={(e) => setFormData({...formData, firstName: e.target.value})}
-                        required
-                        className="form-input"
-                        placeholder="Ingresa el nombre"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="lastName" className="form-label">Apellido *</label>
-                      <input
-                        type="text"
-                        id="lastName"
-                        value={formData.lastName}
-                        onChange={(e) => setFormData({...formData, lastName: e.target.value})}
-                        required
-                        className="form-input"
-                        placeholder="Ingresa el apellido"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="email" className="form-label">Email *</label>
-                      <input
-                        type="email"
-                        id="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({...formData, email: e.target.value})}
-                        required
-                        className="form-input"
-                        placeholder="correo@ejemplo.com"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="phone" className="form-label">Teléfono</label>
-                      <input
-                        type="tel"
-                        id="phone"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                        className="form-input"
-                        placeholder="123-456-7890"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="location" className="form-label">Ubicación</label>
-                      <input
-                        type="text"
-                        id="location"
-                        value={formData.location}
-                        onChange={(e) => setFormData({...formData, location: e.target.value})}
-                        className="form-input"
-                        placeholder="Ciudad, País"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="hobby" className="form-label">Hobby</label>
-                      <input
-                        type="text"
-                        id="hobby"
-                        value={formData.hobby}
-                        onChange={(e) => setFormData({...formData, hobby: e.target.value})}
-                        className="form-input"
-                        placeholder="Pasatiempo favorito"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="status" className="form-label">Estado</label>
-                    <select
-                      id="status"
-                      value={formData.status}
-                      onChange={(e) => setFormData({...formData, status: e.target.value})}
-                      className="form-select"
-                    >
-                      <option value="active">Activo</option>
-                      <option value="inactive">Inactivo</option>
-                      {/* <option value="pending">Pendiente</option> */}
-                    </select>
-                  </div>
+              // Formulario de edición/creación
+              <form className="modal-form" onSubmit={handleSubmit}>
+                <div className="form-group">
+                  <label>
+                    Nombre <span className="required">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.firstName}
+                    onChange={(e) => {
+                      setFormData({...formData, firstName: e.target.value});
+                      validateField('firstName', e.target.value);
+                    }}
+                    onBlur={(e) => validateField('firstName', e.target.value)}
+                    placeholder="Ingrese el nombre"
+                    className={formErrors.firstName ? 'input-error' : ''}
+                  />
+                  {formErrors.firstName && (
+                    <span className="error-message">
+                      <AlertCircle size={14} /> {formErrors.firstName}
+                    </span>
+                  )}
                 </div>
 
-                <div className="modal-footer">
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary" 
-                    onClick={() => setShowModal(false)}
+                <div className="form-group">
+                  <label>
+                    Apellido <span className="required">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.lastName}
+                    onChange={(e) => {
+                      setFormData({...formData, lastName: e.target.value});
+                      validateField('lastName', e.target.value);
+                    }}
+                    onBlur={(e) => validateField('lastName', e.target.value)}
+                    placeholder="Ingrese el apellido"
+                    className={formErrors.lastName ? 'input-error' : ''}
+                  />
+                  {formErrors.lastName && (
+                    <span className="error-message">
+                      <AlertCircle size={14} /> {formErrors.lastName}
+                    </span>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label>
+                    Email <span className="required">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => {
+                      setFormData({...formData, email: e.target.value});
+                      validateField('email', e.target.value);
+                    }}
+                    onBlur={(e) => validateField('email', e.target.value)}
+                    placeholder="correo@ejemplo.com"
+                    className={formErrors.email ? 'input-error' : ''}
+                  />
+                  {formErrors.email && (
+                    <span className="error-message">
+                      <AlertCircle size={14} /> {formErrors.email}
+                    </span>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label>Teléfono</label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => {
+                      setFormData({...formData, phone: e.target.value});
+                      validateField('phone', e.target.value);
+                    }}
+                    onBlur={(e) => validateField('phone', e.target.value)}
+                    placeholder="123-456-7890"
+                    className={formErrors.phone ? 'input-error' : ''}
+                  />
+                  {formErrors.phone && (
+                    <span className="error-message">
+                      <AlertCircle size={14} /> {formErrors.phone}
+                    </span>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label>Ubicación</label>
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => setFormData({...formData, location: e.target.value})}
+                    placeholder="Ciudad, País"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Hobby</label>
+                  <input
+                    type="text"
+                    value={formData.hobby}
+                    onChange={(e) => setFormData({...formData, hobby: e.target.value})}
+                    placeholder="Pasatiempo favorito"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Estado</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({...formData, status: e.target.value})}
                   >
-                    <X size={18} />
+                    <option value="active">Activo</option>
+                    <option value="inactive">Inactivo</option>
+                  </select>
+                </div>
+
+                <div className="modal-actions">
+                  <button type="button" className="btn-secondary" onClick={handleCloseModal}>
                     Cancelar
                   </button>
-                  <button 
-                    type="submit" 
-                    className="btn btn-primary"
-                  >
-                    <Save size={18} />
-                    {modalMode === 'create' ? 'Crear Usuario' : 'Guardar Cambios'}
+                  <button type="submit" className="btn-primary" disabled={loading}>
+                    {loading ? (
+                      <>
+                        <RefreshCw className="spinning" size={18} />
+                        Guardando...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle size={18} />
+                        {editingUser ? 'Actualizar' : 'Crear'}
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
@@ -651,8 +682,57 @@ const UsersCRUD = () => {
           </div>
         </div>
       )}
+
+      {/* Modal de Confirmación de Eliminación */}
+      {showDeleteModal && (
+        <div className="modal-overlay" onClick={cancelDelete}>
+          <div className="modal modal-delete" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header-delete">
+              <AlertCircle size={48} color="#E74C3C" />
+              <h2>¿Eliminar Usuario?</h2>
+            </div>
+            <div className="modal-body-delete">
+              <p>
+                ¿Estás seguro de que deseas eliminar al usuario{' '}
+                <strong>{userToDelete?.firstName} {userToDelete?.lastName}</strong>?
+              </p>
+              <p className="warning-text">
+                ⚠️ Esta acción no se puede deshacer. Se eliminará toda la información asociada.
+              </p>
+            </div>
+            <div className="modal-actions">
+              <button 
+                type="button" 
+                className="btn-secondary" 
+                onClick={cancelDelete}
+                disabled={loading}
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button" 
+                className="btn-delete-confirm" 
+                onClick={confirmDelete}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw className="spinning" size={18} />
+                    Eliminando...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={18} />
+                    Sí, Eliminar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default UsersCRUD;
+export default UsersCrud;

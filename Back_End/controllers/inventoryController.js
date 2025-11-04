@@ -1,85 +1,423 @@
 const pool = require("../config/db");
 
-// 📌 Obtener todo el inventario con info del producto
-exports.getAllInventory = async (req, res) => {
+// ========================================
+// 📊 ENDPOINT PRINCIPAL - Stock Actual
+// ========================================
+
+/**
+ * Obtener inventario desde la vista de stock actual
+ * GET /api/inventory
+ */
+exports.getInventory = async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT i.idInventario, i.idProducto, p.nombre, p.precio, i.idSede,
-             i.stockDisponible, i.stock_minimo, i.stock_maximo, i.fechaActualizacion
-      FROM inventario i
-      JOIN producto p ON i.idProducto = p.idProducto
-      ORDER BY i.fechaActualizacion DESC
+      SELECT 
+        nombre_insumo,
+        unidad_medida,
+        stock_disponible,
+        stock_minimo_insumo,
+        idSede,
+        CASE 
+          WHEN stock_disponible = 0 THEN 'Agotado'
+          WHEN stock_disponible <= (stock_minimo_insumo * 0.5) THEN 'Stock Crítico'
+          WHEN stock_disponible <= stock_minimo_insumo THEN 'Stock Bajo'
+          ELSE 'En Stock'
+        END as estado
+      FROM vista_stock_actual
+      ORDER BY stock_disponible ASC
     `);
+    
     res.json(rows);
   } catch (error) {
     console.error("Error al obtener inventario:", error);
-    res.status(500).json({ message: "Error al obtener inventario", error: error.message });
+    res.status(500).json({ 
+      message: "Error al obtener inventario", 
+      error: error.message 
+    });
   }
 };
 
-// 📌 Crear un nuevo registro de inventario
-exports.createInventory = async (req, res) => {
-  const { idProducto, idSede, stockDisponible, stock_minimo, stock_maximo } = req.body;
+// ========================================
+// 📈 ENDPOINTS DE ESTADÍSTICAS
+// ========================================
+
+/**
+ * Obtener estadísticas para las Stats Cards
+ * GET /api/inventory/stats
+ */
+exports.getInventoryStats = async (req, res) => {
+  try {
+    const [stats] = await pool.query(`
+      SELECT 
+        COUNT(*) as total_insumos,
+        SUM(CASE 
+          WHEN stock_disponible > stock_minimo_insumo THEN 1 
+          ELSE 0 
+        END) as en_stock,
+        SUM(CASE 
+          WHEN stock_disponible <= stock_minimo_insumo 
+          AND stock_disponible > (stock_minimo_insumo * 0.5) 
+          THEN 1 
+          ELSE 0 
+        END) as stock_bajo,
+        SUM(CASE 
+          WHEN stock_disponible <= (stock_minimo_insumo * 0.5) 
+          AND stock_disponible > 0 
+          THEN 1 
+          ELSE 0 
+        END) as stock_critico,
+        SUM(CASE 
+          WHEN stock_disponible = 0 THEN 1 
+          ELSE 0 
+        END) as agotado,
+        SUM(CASE 
+          WHEN stock_disponible <= stock_minimo_insumo 
+          OR stock_disponible = 0 
+          THEN 1 
+          ELSE 0 
+        END) as requiere_atencion
+      FROM vista_stock_actual
+    `);
+    
+    res.json(stats[0]);
+  } catch (error) {
+    console.error("Error al obtener estadísticas:", error);
+    res.status(500).json({ 
+      message: "Error al obtener estadísticas", 
+      error: error.message 
+    });
+  }
+};
+
+// ========================================
+// 🔍 ENDPOINTS DE FILTROS POR ESTADO
+// ========================================
+
+/**
+ * Obtener insumos en buen estado (En Stock)
+ * GET /api/inventory/in-stock
+ */
+exports.getInsumosInStock = async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        nombre_insumo,
+        unidad_medida,
+        stock_disponible,
+        stock_minimo_insumo,
+        idSede,
+        'En Stock' as estado
+      FROM vista_stock_actual
+      WHERE stock_disponible > stock_minimo_insumo
+      ORDER BY nombre_insumo ASC
+    `);
+    
+    res.json(rows);
+  } catch (error) {
+    console.error("Error al obtener insumos en stock:", error);
+    res.status(500).json({ 
+      message: "Error al obtener insumos en stock", 
+      error: error.message 
+    });
+  }
+};
+
+/**
+ * Obtener insumos que requieren atención (Stock Bajo + Stock Crítico)
+ * GET /api/inventory/low-stock
+ */
+exports.getInsumosLowStock = async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        nombre_insumo,
+        unidad_medida,
+        stock_disponible,
+        stock_minimo_insumo,
+        idSede,
+        CASE 
+          WHEN stock_disponible <= (stock_minimo_insumo * 0.5) THEN 'Stock Crítico'
+          ELSE 'Stock Bajo'
+        END as estado
+      FROM vista_stock_actual
+      WHERE stock_disponible <= stock_minimo_insumo 
+        AND stock_disponible > 0
+      ORDER BY stock_disponible ASC
+    `);
+    
+    res.json(rows);
+  } catch (error) {
+    console.error("Error al obtener insumos con stock bajo:", error);
+    res.status(500).json({ 
+      message: "Error al obtener insumos con stock bajo", 
+      error: error.message 
+    });
+  }
+};
+
+/**
+ * Obtener insumos agotados
+ * GET /api/inventory/out-of-stock
+ */
+exports.getInsumosOutOfStock = async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        nombre_insumo,
+        unidad_medida,
+        stock_disponible,
+        stock_minimo_insumo,
+        idSede,
+        'Agotado' as estado
+      FROM vista_stock_actual
+      WHERE stock_disponible = 0
+      ORDER BY nombre_insumo ASC
+    `);
+    
+    res.json(rows);
+  } catch (error) {
+    console.error("Error al obtener insumos agotados:", error);
+    res.status(500).json({ 
+      message: "Error al obtener insumos agotados", 
+      error: error.message 
+    });
+  }
+};
+
+// ========================================
+// 📝 REGISTRO DE MOVIMIENTOS
+// ========================================
+
+/**
+ * Registrar un movimiento de inventario (Entrada/Salida)
+ * POST /api/inventory/movement
+ * 
+ * Body esperado:
+ * {
+ *   nombre_insumo: "Paquete de Pan (x24)",
+ *   cantidad_movida: 10,
+ *   tipo_movimiento: "entrada" | "salida",
+ *   motivo_detalle: "compra" | "venta/consumo" | "merma/desperdicio" | "ajuste_conteo",
+ *   observaciones: "Texto opcional",
+ *   idSede: 1
+ * }
+ */
+exports.recordInventoryMovement = async (req, res) => {
+  const { 
+    nombre_insumo, 
+    cantidad_movida, 
+    tipo_movimiento, 
+    motivo_detalle, 
+    observaciones, 
+    idSede 
+  } = req.body;
+
+  // Validaciones
+  if (!nombre_insumo || !cantidad_movida || !tipo_movimiento || !motivo_detalle) {
+    return res.status(400).json({ 
+      message: "Faltan campos obligatorios: nombre_insumo, cantidad_movida, tipo_movimiento, motivo_detalle" 
+    });
+  }
+
+  if (!['entrada', 'salida'].includes(tipo_movimiento)) {
+    return res.status(400).json({ 
+      message: "tipo_movimiento debe ser 'entrada' o 'salida'" 
+    });
+  }
+
+  const motivosValidos = ['compra', 'venta/consumo', 'merma/desperdicio', 'ajuste_conteo'];
+  if (!motivosValidos.includes(motivo_detalle)) {
+    return res.status(400).json({ 
+      message: `motivo_detalle debe ser uno de: ${motivosValidos.join(', ')}` 
+    });
+  }
+
+  if (cantidad_movida <= 0) {
+    return res.status(400).json({ 
+      message: "La cantidad_movida debe ser mayor a 0" 
+    });
+  }
 
   try {
-    const [result] = await pool.query(
-      `INSERT INTO inventario (idProducto, idSede, stockDisponible, stock_minimo, stock_maximo, fechaActualizacion)
-       VALUES (?, ?, ?, ?, ?, NOW())`,
-      [idProducto, idSede, stockDisponible, stock_minimo, stock_maximo]
-    );
+    // Insertar el movimiento en la tabla inventario_general
+    const [result] = await pool.query(`
+      INSERT INTO inventario_general (
+        nombre_insumo,
+        cantidad_movida,
+        tipo_movimiento,
+        motivo_detalle,
+        observaciones,
+        idSede,
+        fecha_movimiento
+      ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+    `, [
+      nombre_insumo,
+      cantidad_movida,
+      tipo_movimiento,
+      motivo_detalle,
+      observaciones || null,
+      idSede || 1
+    ]);
 
     res.status(201).json({
-      idInventario: result.insertId,
-      idProducto,
-      idSede,
-      stockDisponible,
-      stock_minimo,
-      stock_maximo
+      message: `Movimiento de ${tipo_movimiento} registrado correctamente`,
+      idMovimiento: result.insertId,
+      nombre_insumo,
+      cantidad_movida,
+      tipo_movimiento,
+      motivo_detalle
     });
   } catch (error) {
-    console.error("Error al crear inventario:", error);
-    res.status(500).json({ message: "Error al crear inventario", error: error.message });
+    console.error("Error al registrar movimiento:", error);
+    res.status(500).json({ 
+      message: "Error al registrar movimiento", 
+      error: error.message 
+    });
   }
 };
 
-// 📌 Actualizar inventario
-exports.updateInventory = async (req, res) => {
-  const { id } = req.params;
-  const { stockDisponible, stock_minimo, stock_maximo } = req.body;
+// ========================================
+// 📋 LISTA DE INSUMOS (Para Selector)
+// ========================================
 
+/**
+ * Obtener lista de nombres de insumos disponibles
+ * GET /api/inventory/insumos-list
+ */
+exports.getInsumosList = async (req, res) => {
   try {
-    const [result] = await pool.query(
-      `UPDATE inventario
-       SET stockDisponible=?, stock_minimo=?, stock_maximo=?, fechaActualizacion=NOW()
-       WHERE idInventario=?`,
-      [stockDisponible, stock_minimo, stock_maximo, id]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Inventario no encontrado" });
-    }
-
-    res.json({ message: "Inventario actualizado correctamente" });
+    const [rows] = await pool.query(`
+      SELECT DISTINCT 
+        nombre_insumo,
+        unidad_medida,
+        stock_disponible
+      FROM vista_stock_actual
+      ORDER BY nombre_insumo ASC
+    `);
+    
+    res.json(rows);
   } catch (error) {
-    console.error("Error al actualizar inventario:", error);
-    res.status(500).json({ message: "Error al actualizar inventario", error: error.message });
+    console.error("Error al obtener lista de insumos:", error);
+    res.status(500).json({ 
+      message: "Error al obtener lista de insumos", 
+      error: error.message 
+    });
   }
 };
 
-// 📌 Eliminar inventario
-exports.deleteInventory = async (req, res) => {
-  const { id } = req.params;
+// ========================================
+// 📜 HISTORIAL DE MOVIMIENTOS
+// ========================================
+
+/**
+ * Obtener historial de movimientos de un insumo específico
+ * GET /api/inventory/movements/:nombre_insumo
+ */
+exports.getMovementHistory = async (req, res) => {
+  const { nombre_insumo } = req.params;
 
   try {
-    const [result] = await pool.query("DELETE FROM inventario WHERE idInventario = ?", [id]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Inventario no encontrado" });
-    }
-
-    res.json({ message: "Inventario eliminado correctamente" });
+    const [rows] = await pool.query(`
+      SELECT 
+        idMovimiento,
+        nombre_insumo,
+        cantidad_movida,
+        tipo_movimiento,
+        motivo_detalle,
+        observaciones,
+        fecha_movimiento,
+        idSede
+      FROM inventario_general
+      WHERE nombre_insumo = ?
+      ORDER BY fecha_movimiento DESC
+      LIMIT 50
+    `, [nombre_insumo]);
+    
+    res.json(rows);
   } catch (error) {
-    console.error("Error al eliminar inventario:", error);
-    res.status(500).json({ message: "Error al eliminar inventario", error: error.message });
+    console.error("Error al obtener historial de movimientos:", error);
+    res.status(500).json({ 
+      message: "Error al obtener historial de movimientos", 
+      error: error.message 
+    });
+  }
+};
+
+/**
+ * Obtener todos los movimientos recientes
+ * GET /api/inventory/movements
+ */
+exports.getAllMovements = async (req, res) => {
+  const limit = req.query.limit || 100;
+
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        idMovimiento,
+        nombre_insumo,
+        cantidad_movida,
+        tipo_movimiento,
+        motivo_detalle,
+        observaciones,
+        fecha_movimiento,
+        idSede
+      FROM inventario_general
+      ORDER BY fecha_movimiento DESC
+      LIMIT ?
+    `, [parseInt(limit)]);
+    
+    res.json(rows);
+  } catch (error) {
+    console.error("Error al obtener movimientos:", error);
+    res.status(500).json({ 
+      message: "Error al obtener movimientos", 
+      error: error.message 
+    });
+  }
+};
+
+// ========================================
+// 🔍 BUSCAR INSUMO ESPECÍFICO
+// ========================================
+
+/**
+ * Buscar un insumo por nombre
+ * GET /api/inventory/search?q=nombre
+ */
+exports.searchInsumo = async (req, res) => {
+  const { q } = req.query;
+
+  if (!q || q.trim() === '') {
+    return res.status(400).json({ 
+      message: "El parámetro de búsqueda 'q' es requerido" 
+    });
+  }
+
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        nombre_insumo,
+        unidad_medida,
+        stock_disponible,
+        stock_minimo_insumo,
+        idSede,
+        CASE 
+          WHEN stock_disponible = 0 THEN 'Agotado'
+          WHEN stock_disponible <= (stock_minimo_insumo * 0.5) THEN 'Stock Crítico'
+          WHEN stock_disponible <= stock_minimo_insumo THEN 'Stock Bajo'
+          ELSE 'En Stock'
+        END as estado
+      FROM vista_stock_actual
+      WHERE nombre_insumo LIKE ?
+      ORDER BY nombre_insumo ASC
+    `, [`%${q}%`]);
+    
+    res.json(rows);
+  } catch (error) {
+    console.error("Error al buscar insumo:", error);
+    res.status(500).json({ 
+      message: "Error al buscar insumo", 
+      error: error.message 
+    });
   }
 };

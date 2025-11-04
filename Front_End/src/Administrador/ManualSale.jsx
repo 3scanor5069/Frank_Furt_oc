@@ -1,24 +1,44 @@
-// Administrador/ManualSale.jsx
-import React, { useState, useEffect } from 'react';
+// ========================================
+// 🍔 MANUAL SALE COMPONENT - DEFINITIVO
+// Frank Furt TPV System
+// ========================================
+// Componente completo con modal de personalización
+// ========================================
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import './ManualSale.css';
 
 const ManualSale = () => {
-  // Estados
+  // ==========================================
+  // 📋 ESTADOS PRINCIPALES
+  // ==========================================
   const [productos, setProductos] = useState([]);
   const [mesas, setMesas] = useState([]);
+  const [personalizaciones, setPersonalizaciones] = useState([]);
+  const [personalizacionesAgrupadas, setPersonalizacionesAgrupadas] = useState({});
   const [carrito, setCarrito] = useState([]);
   const [mesaSeleccionada, setMesaSeleccionada] = useState('');
   const [loading, setLoading] = useState(false);
-  const [mensaje, setMensaje] = useState(null);
   const [categoriaFiltro, setCategoriaFiltro] = useState('');
   const [categorias, setCategorias] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [estadisticas, setEstadisticas] = useState(null);
 
-  // Cargar datos al montar
+  // ==========================================
+  // 📋 ESTADOS DEL MODAL DE PERSONALIZACIÓN
+  // ==========================================
+  const [modalPersonalizacion, setModalPersonalizacion] = useState(false);
+  const [productoEditando, setProductoEditando] = useState(null);
+  const [personalizacionesSeleccionadas, setPersonalizacionesSeleccionadas] = useState([]);
+  const [notasPersonalizacion, setNotasPersonalizacion] = useState('');
+
+  // ==========================================
+  // 🔄 CARGAR DATOS AL MONTAR
+  // ==========================================
   useEffect(() => {
     cargarDatosIniciales();
-    // Actualizar estadísticas cada 30 segundos
     const interval = setInterval(cargarEstadisticas, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -29,17 +49,21 @@ const ManualSale = () => {
       cargarProductos(),
       cargarMesas(),
       cargarCategorias(),
+      cargarPersonalizaciones(),
       cargarEstadisticas()
     ]);
     setLoading(false);
   };
 
+  // ==========================================
+  // 📡 FUNCIONES DE CARGA DE DATOS
+  // ==========================================
   const cargarEstadisticas = async () => {
     try {
       const response = await fetch('http://localhost:3006/api/manualSale/estadisticas');
       if (response.ok) {
         const data = await response.json();
-        setEstadisticas(data);
+        setEstadisticas(data.data);
       }
     } catch (error) {
       console.error('Error al cargar estadísticas:', error);
@@ -51,10 +75,10 @@ const ManualSale = () => {
       const response = await fetch('http://localhost:3006/api/manualSale/mesas');
       if (!response.ok) throw new Error('Error al cargar mesas');
       const data = await response.json();
-      setMesas(data);
+      setMesas(data.data);
     } catch (error) {
       console.error('Error:', error);
-      mostrarMensaje('Error al cargar las mesas', 'error');
+      toast.error('Error al cargar las mesas');
     }
   };
 
@@ -63,10 +87,10 @@ const ManualSale = () => {
       const response = await fetch('http://localhost:3006/api/manualSale/productos');
       if (!response.ok) throw new Error('Error al cargar productos');
       const data = await response.json();
-      setProductos(data);
+      setProductos(data.data);
     } catch (error) {
       console.error('Error:', error);
-      mostrarMensaje('Error al cargar los productos', 'error');
+      toast.error('Error al cargar los productos');
     }
   };
 
@@ -75,82 +99,167 @@ const ManualSale = () => {
       const response = await fetch('http://localhost:3006/api/manualSale/categorias');
       if (!response.ok) throw new Error('Error al cargar categorías');
       const data = await response.json();
-      setCategorias(data);
+      setCategorias(data.data);
     } catch (error) {
       console.error('Error:', error);
     }
   };
 
+  const cargarPersonalizaciones = async () => {
+    try {
+      const response = await fetch('http://localhost:3006/api/manualSale/personalizaciones');
+      if (!response.ok) throw new Error('Error al cargar personalizaciones');
+      const data = await response.json();
+      setPersonalizaciones(data.data);
+      setPersonalizacionesAgrupadas(data.agrupadas || {});
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Error al cargar las personalizaciones');
+    }
+  };
+
+  // ==========================================
+  // 🛒 FUNCIONES DEL CARRITO
+  // ==========================================
   const agregarAlCarrito = (producto) => {
     if (producto.stock <= 0) {
-      mostrarMensaje('Producto sin stock disponible', 'error');
+      toast.error('Producto sin stock disponible');
       return;
     }
 
-    const productoExistente = carrito.find(item => item.idProducto === producto.idProducto);
+    const productoExistente = carrito.find(item => 
+      item.idProducto === producto.idProducto && 
+      !item.personalizaciones
+    );
     
     if (productoExistente) {
       if (productoExistente.cantidad >= producto.stock) {
-        mostrarMensaje('Stock insuficiente', 'error');
+        toast.error('Stock insuficiente');
         return;
       }
       setCarrito(carrito.map(item =>
-        item.idProducto === producto.idProducto
+        item === productoExistente
           ? { ...item, cantidad: item.cantidad + 1 }
           : item
       ));
-      mostrarMensaje(`+1 ${producto.nombre}`, 'exito');
+      toast.success(`+1 ${producto.nombre}`);
     } else {
-      setCarrito([...carrito, {
+      const nuevoItem = {
+        id: Date.now(), // ID temporal único para cada item del carrito
         idProducto: producto.idProducto,
         nombre: producto.nombre,
         precio: producto.precio,
         cantidad: 1,
-        stockDisponible: producto.stock
-      }]);
-      mostrarMensaje(`${producto.nombre} agregado`, 'exito');
+        stockDisponible: producto.stock,
+        personalizaciones: null,
+        notas: null
+      };
+      setCarrito([...carrito, nuevoItem]);
+      toast.success(`${producto.nombre} agregado`);
     }
   };
 
-  const modificarCantidad = (idProducto, nuevaCantidad) => {
+  const modificarCantidad = (itemCarrito, nuevaCantidad) => {
     if (nuevaCantidad <= 0) {
-      eliminarDelCarrito(idProducto);
+      eliminarDelCarrito(itemCarrito);
       return;
     }
 
-    const item = carrito.find(i => i.idProducto === idProducto);
-    if (item && nuevaCantidad > item.stockDisponible) {
-      mostrarMensaje('Stock insuficiente', 'error');
+    if (nuevaCantidad > itemCarrito.stockDisponible) {
+      toast.error('Stock insuficiente');
       return;
     }
 
     setCarrito(carrito.map(item =>
-      item.idProducto === idProducto
+      item.id === itemCarrito.id
         ? { ...item, cantidad: nuevaCantidad }
         : item
     ));
   };
 
-  const eliminarDelCarrito = (idProducto) => {
-    const item = carrito.find(i => i.idProducto === idProducto);
-    setCarrito(carrito.filter(item => item.idProducto !== idProducto));
-    if (item) {
-      mostrarMensaje(`${item.nombre} eliminado`, 'info');
-    }
+  const eliminarDelCarrito = (itemCarrito) => {
+    setCarrito(carrito.filter(item => item.id !== itemCarrito.id));
+    toast.info(`${itemCarrito.nombre} eliminado`);
   };
 
   const calcularTotal = () => {
-    return carrito.reduce((total, item) => total + (item.precio * item.cantidad), 0);
+    return carrito.reduce((total, item) => {
+      let precioItem = item.precio;
+      
+      // Sumar precios de personalizaciones
+      if (item.personalizaciones && item.personalizaciones.length > 0) {
+        const costoPersonalizaciones = item.personalizaciones.reduce((sum, pers) => {
+          return sum + (parseFloat(pers.precio_adicional) || 0);
+        }, 0);
+        precioItem += costoPersonalizaciones;
+      }
+      
+      return total + (precioItem * item.cantidad);
+    }, 0);
   };
 
+  // ==========================================
+  // 🎨 FUNCIONES DEL MODAL DE PERSONALIZACIÓN
+  // ==========================================
+  const abrirModalPersonalizacion = (itemCarrito) => {
+    setProductoEditando(itemCarrito);
+    setPersonalizacionesSeleccionadas(itemCarrito.personalizaciones || []);
+    setNotasPersonalizacion(itemCarrito.notas || '');
+    setModalPersonalizacion(true);
+  };
+
+  const cerrarModalPersonalizacion = () => {
+    setModalPersonalizacion(false);
+    setProductoEditando(null);
+    setPersonalizacionesSeleccionadas([]);
+    setNotasPersonalizacion('');
+  };
+
+  const togglePersonalizacion = (pers) => {
+    const existe = personalizacionesSeleccionadas.find(
+      p => p.idPersonalizacion === pers.idPersonalizacion
+    );
+
+    if (existe) {
+      setPersonalizacionesSeleccionadas(
+        personalizacionesSeleccionadas.filter(
+          p => p.idPersonalizacion !== pers.idPersonalizacion
+        )
+      );
+    } else {
+      setPersonalizacionesSeleccionadas([...personalizacionesSeleccionadas, pers]);
+    }
+  };
+
+  const guardarPersonalizacion = () => {
+    if (!productoEditando) return;
+
+    // Actualizar el item en el carrito con las personalizaciones
+    setCarrito(carrito.map(item => 
+      item.id === productoEditando.id
+        ? {
+            ...item,
+            personalizaciones: personalizacionesSeleccionadas.length > 0 ? personalizacionesSeleccionadas : null,
+            notas: notasPersonalizacion.trim() || null
+          }
+        : item
+    ));
+
+    toast.success('Personalización guardada');
+    cerrarModalPersonalizacion();
+  };
+
+  // ==========================================
+  // 📤 CONFIRMAR PEDIDO
+  // ==========================================
   const confirmarPedido = async () => {
     if (!mesaSeleccionada) {
-      mostrarMensaje('Debe seleccionar una mesa', 'error');
+      toast.error('Debe seleccionar una mesa');
       return;
     }
 
     if (carrito.length === 0) {
-      mostrarMensaje('El carrito está vacío', 'error');
+      toast.error('El carrito está vacío');
       return;
     }
 
@@ -167,13 +276,21 @@ const ManualSale = () => {
     setLoading(true);
 
     try {
+      // Formatear productos para el backend
+      const productosFormateados = carrito.map(item => ({
+        idProducto: item.idProducto,
+        cantidad: item.cantidad,
+        personalizaciones: item.personalizaciones 
+          ? item.personalizaciones.map(p => p.idPersonalizacion)
+          : [],
+        notas: item.notas
+      }));
+
       const pedidoData = {
         idMesa: parseInt(mesaSeleccionada),
         idSede: 1,
-        productos: carrito.map(item => ({
-          idProducto: item.idProducto,
-          cantidad: item.cantidad
-        }))
+        idUsuario: 1,
+        productos: productosFormateados
       };
 
       const response = await fetch('http://localhost:3006/api/manualSale/registrar', {
@@ -185,9 +302,8 @@ const ManualSale = () => {
       const result = await response.json();
 
       if (response.ok) {
-        mostrarMensaje(
-          `✅ Pedido #${result.data.idPedido} registrado - Total: $${result.data.total.toLocaleString()}`,
-          'exito'
+        toast.success(
+          `✅ Pedido #${result.data.idPedido} registrado - Total: $${result.data.total.toLocaleString()}`
         );
         // Limpiar
         setCarrito([]);
@@ -196,19 +312,18 @@ const ManualSale = () => {
         await Promise.all([cargarMesas(), cargarProductos(), cargarEstadisticas()]);
       } else {
         const errorMsg = result.error || 'Error al registrar el pedido';
-        mostrarMensaje(errorMsg, 'error');
+        toast.error(errorMsg);
         
         // Si es error de stock, mostrar detalles
         if (result.code === 'INSUFFICIENT_STOCK' && result.producto) {
-          mostrarMensaje(
-            `Stock insuficiente: ${result.producto} (Disponible: ${result.disponible})`,
-            'error'
+          toast.error(
+            `Stock insuficiente: ${result.producto} (Disponible: ${result.disponible})`
           );
         }
       }
     } catch (error) {
       console.error('Error:', error);
-      mostrarMensaje('Error al conectar con el servidor', 'error');
+      toast.error('Error al conectar con el servidor');
     } finally {
       setLoading(false);
     }
@@ -218,17 +333,14 @@ const ManualSale = () => {
     if (carrito.length > 0) {
       if (window.confirm('¿Limpiar el carrito?')) {
         setCarrito([]);
-        mostrarMensaje('Carrito limpiado', 'info');
+        toast.info('Carrito limpiado');
       }
     }
   };
 
-  const mostrarMensaje = (texto, tipo = 'exito') => {
-    setMensaje({ texto, tipo });
-    setTimeout(() => setMensaje(null), 5000);
-  };
-
-  // Filtrar productos
+  // ==========================================
+  // 🔍 FILTRAR PRODUCTOS
+  // ==========================================
   const productosFiltrados = productos.filter(p => {
     const coincideCategoria = !categoriaFiltro || p.categoria === categoriaFiltro;
     const coincideBusqueda = !busqueda || 
@@ -239,8 +351,13 @@ const ManualSale = () => {
 
   const mesaActual = mesas.find(m => m.idMesa === parseInt(mesaSeleccionada));
 
+  // ==========================================
+  // 🎨 RENDER
+  // ==========================================
   return (
     <div className="manual-sale-container">
+      <ToastContainer position="bottom-right" autoClose={3000} />
+
       {/* Header */}
       <div className="manual-sale-header">
         <div className="header-title">
@@ -381,45 +498,77 @@ const ManualSale = () => {
           ) : (
             <div className="carrito-contenido">
               <div className="carrito-items">
-                {carrito.map(item => (
-                  <div key={item.idProducto} className="carrito-item">
-                    <div className="item-info">
-                      <h4>{item.nombre}</h4>
-                      <p className="item-precio">${item.precio.toLocaleString()}</p>
-                    </div>
-                    <div className="cantidad-controls">
+                {carrito.map(item => {
+                  // Calcular precio con personalizaciones
+                  const costoPersonalizaciones = item.personalizaciones
+                    ? item.personalizaciones.reduce((sum, p) => sum + parseFloat(p.precio_adicional || 0), 0)
+                    : 0;
+                  const precioConPersonalizacion = item.precio + costoPersonalizaciones;
+
+                  return (
+                    <div key={item.id} className="carrito-item">
+                      <div className="item-info">
+                        <h4>{item.nombre}</h4>
+                        <p className="item-precio">
+                          ${item.precio.toLocaleString()}
+                          {costoPersonalizaciones > 0 && (
+                            <span className="precio-personalizacion">
+                              {' '}+ ${costoPersonalizaciones.toLocaleString()}
+                            </span>
+                          )}
+                        </p>
+                        {item.personalizaciones && item.personalizaciones.length > 0 && (
+                          <div className="personalizaciones-mini">
+                            {item.personalizaciones.map(p => (
+                              <span key={p.idPersonalizacion} className="pers-tag">
+                                {p.nombre}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {item.notas && (
+                          <p className="notas-mini">📝 {item.notas}</p>
+                        )}
+                      </div>
+                      <div className="cantidad-controls">
+                        <button
+                          onClick={() => modificarCantidad(item, item.cantidad - 1)}
+                          disabled={loading}
+                          className="btn-cantidad"
+                        >
+                          −
+                        </button>
+                        <span className="cantidad-display">{item.cantidad}</span>
+                        <button
+                          onClick={() => modificarCantidad(item, item.cantidad + 1)}
+                          disabled={loading || item.cantidad >= item.stockDisponible}
+                          className="btn-cantidad"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <div className="item-subtotal">
+                        ${(precioConPersonalizacion * item.cantidad).toLocaleString()}
+                      </div>
                       <button
-                        onClick={() => modificarCantidad(item.idProducto, item.cantidad - 1)}
+                        className="btn-personalizar"
+                        onClick={() => abrirModalPersonalizacion(item)}
                         disabled={loading}
-                        className="btn-cantidad"
-                        aria-label="Disminuir cantidad"
+                        title="Personalizar producto"
                       >
-                        −
+                        ⚙️
                       </button>
-                      <span className="cantidad-display">{item.cantidad}</span>
                       <button
-                        onClick={() => modificarCantidad(item.idProducto, item.cantidad + 1)}
-                        disabled={loading || item.cantidad >= item.stockDisponible}
-                        className="btn-cantidad"
-                        aria-label="Aumentar cantidad"
+                        className="btn-eliminar"
+                        onClick={() => eliminarDelCarrito(item)}
+                        disabled={loading}
+                        title="Eliminar del carrito"
                       >
-                        +
+                        ✕
                       </button>
                     </div>
-                    <div className="item-subtotal">
-                      ${(item.precio * item.cantidad).toLocaleString()}
-                    </div>
-                    <button
-                      className="btn-eliminar"
-                      onClick={() => eliminarDelCarrito(item.idProducto)}
-                      disabled={loading}
-                      title="Eliminar del carrito"
-                      aria-label="Eliminar producto"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               
               <div className="carrito-resumen">
@@ -462,20 +611,67 @@ const ManualSale = () => {
         </div>
       </div>
 
-      {/* Mensajes Toast */}
-      {mensaje && (
-        <div className={`mensaje-toast ${mensaje.tipo}`}>
-          <span className="mensaje-icono">
-            {mensaje.tipo === 'exito' ? '✓' : mensaje.tipo === 'error' ? '✕' : 'ℹ'}
-          </span>
-          <span className="mensaje-texto">{mensaje.texto}</span>
-          <button 
-            className="mensaje-cerrar" 
-            onClick={() => setMensaje(null)}
-            aria-label="Cerrar mensaje"
-          >
-            ✕
-          </button>
+      {/* Modal de Personalización */}
+      {modalPersonalizacion && (
+        <div className="modal-overlay" onClick={cerrarModalPersonalizacion}>
+          <div className="modal-personalizacion" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header-pers">
+              <h3>⚙️ Personalizar: {productoEditando?.nombre}</h3>
+              <button className="btn-cerrar-modal" onClick={cerrarModalPersonalizacion}>
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body-pers">
+              {Object.keys(personalizacionesAgrupadas).length === 0 ? (
+                <p className="no-personalizaciones">No hay personalizaciones disponibles</p>
+              ) : (
+                Object.entries(personalizacionesAgrupadas).map(([categoria, lista]) => (
+                  <div key={categoria} className="grupo-personalizaciones">
+                    <h4 className="categoria-titulo">{categoria}</h4>
+                    <div className="opciones-personalizaciones">
+                      {lista.map(pers => (
+                        <label key={pers.idPersonalizacion} className="opcion-pers">
+                          <input
+                            type="checkbox"
+                            checked={personalizacionesSeleccionadas.some(
+                              p => p.idPersonalizacion === pers.idPersonalizacion
+                            )}
+                            onChange={() => togglePersonalizacion(pers)}
+                          />
+                          <span className="pers-nombre">{pers.nombre}</span>
+                          {pers.precio_adicional > 0 && (
+                            <span className="pers-precio">+${pers.precio_adicional.toLocaleString()}</span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+
+              <div className="notas-personalizacion">
+                <label>Notas adicionales:</label>
+                <textarea
+                  rows="3"
+                  placeholder="Ej: Sin cebolla, extra salsa..."
+                  value={notasPersonalizacion}
+                  onChange={(e) => setNotasPersonalizacion(e.target.value)}
+                  maxLength={200}
+                />
+                <small>{notasPersonalizacion.length}/200</small>
+              </div>
+            </div>
+
+            <div className="modal-footer-pers">
+              <button className="btn-cancelar-modal" onClick={cerrarModalPersonalizacion}>
+                Cancelar
+              </button>
+              <button className="btn-guardar-modal" onClick={guardarPersonalizacion}>
+                ✓ Guardar Personalización
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

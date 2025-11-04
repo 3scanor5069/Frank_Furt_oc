@@ -1,17 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Users, ShoppingCart, DollarSign, TrendingUp, Menu, X, Home, Package, FileText, Settings, Bell, UtensilsCrossed, History } from 'lucide-react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Users, ShoppingCart, DollarSign, TrendingUp, Menu, X, Home, Package, FileText, Settings, Bell, UtensilsCrossed, History, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import './dashboard.css';
-
 
 const Dashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentUser, setCurrentUser] = useState({ name: 'Admin', avatar: 'A' });
   const navigate = useNavigate();
 
-  
   // Estados para los datos del dashboard
   const [metrics, setMetrics] = useState({
     totalUsers: 0,
@@ -26,131 +27,203 @@ const Dashboard = () => {
   const [topProducts, setTopProducts] = useState([]);
   const [recentUsers, setRecentUsers] = useState([]);
 
-  // URLs de la API local - ajusta según tu backend
-  const API_BASE_URL = 'http://localhost:3006/api/dashboard';
- // Cambia el puerto según tu configuración
-  
-  // Función para realizar peticiones a la API
-  const fetchData = async (endpoint) => {
-  try {
-    const res = await fetch(`${API_BASE_URL}${endpoint}`);
-    if (!res.ok) {
-      const text = await res.text();
-      console.error(`HTTP ${res.status} ${endpoint}:`, text);
-      throw new Error(`HTTP ${res.status}`);
-    }
-    return await res.json();
-  } catch (e) {
-    console.error(`Error fetching ${endpoint}:`, e);
-    throw e;
-  }
-};
+  const API_BASE_URL = 'http://localhost:3006/api';
 
-  // Cargar datos del dashboard al montar el componente
-  useEffect(() => {
-    const loadDashboardData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Cargar métricas principales
-        const metricsData = await fetchData('/metrics');
-        setMetrics(metricsData);
-
-        // Cargar datos de ventas mensuales
-        const monthlySalesData = await fetchData('/monthly-sales');
-        setMonthlySales(monthlySalesData);
-
-        // Cargar datos de ventas semanales
-        const weeklySalesData = await fetchData('/weekly-sales');
-        setWeeklySales(weeklySalesData);
-
-        // Cargar nuevos usuarios registrados
-        const newUsersData = await fetchData('/new-users');
-        setNewUsers(newUsersData);
-
-        // Cargar productos más vendidos
-        const topProductsData = await fetchData('/top-products');
-        setTopProducts(topProductsData);
-
-        // Cargar últimos usuarios registrados
-        const recentUsersData = await fetchData('/recent-users');
-        setRecentUsers(recentUsersData);
-
-      } catch (error) {
-        setError('Error al cargar los datos del dashboard');
-        console.error('Dashboard data loading error:', error);
-        
-        // Datos de fallback para desarrollo
-        setMetrics({
-          totalUsers: 1248,
-          totalOrders: 342,
-          dailyRevenue: 56020,
-          weeklyOrders: 164
-        });
-        
-        setMonthlySales([
-          { day: '1', ventas: 15000 },
-          { day: '5', ventas: 18000 },
-          { day: '10', ventas: 22000 },
-          { day: '15', ventas: 19000 },
-          { day: '20', ventas: 25000 },
-          { day: '25', ventas: 28000 },
-          { day: '30', ventas: 32000 }
-        ]);
-        
-        setWeeklySales([
-          { day: 'Lun', ventas: 4500 },
-          { day: 'Mar', ventas: 5200 },
-          { day: 'Mié', ventas: 4800 },
-          { day: 'Jue', ventas: 6100 },
-          { day: 'Vie', ventas: 7300 },
-          { day: 'Sáb', ventas: 8900 },
-          { day: 'Dom', ventas: 6800 }
-        ]);
-        
-        setNewUsers([
-          { semana: 'Sem 1', usuarios: 45 },
-          { semana: 'Sem 2', usuarios: 52 },
-          { semana: 'Sem 3', usuarios: 38 },
-          { semana: 'Sem 4', usuarios: 67 }
-        ]);
-        
-        setTopProducts([
-          { name: 'Hamburguesa Clásica', value: 35, color: '#FF6B6B' },
-          { name: 'Papas Fritas', value: 25, color: '#4ECDC4' },
-          { name: 'Hot Dog Especial', value: 20, color: '#45B7D1' },
-          { name: 'Bebidas', value: 15, color: '#96CEB4' },
-          { name: 'Otros', value: 5, color: '#FFEAA7' }
-        ]);
-        
-        setRecentUsers([
-          { id: 1, name: 'Juan Pérez', email: 'juan@email.com', date: '2024-06-29', status: 'Activo' },
-          { id: 2, name: 'María García', email: 'maria@email.com', date: '2024-06-29', status: 'Activo' },
-          { id: 3, name: 'Carlos López', email: 'carlos@email.com', date: '2024-06-28', status: 'Activo' },
-          { id: 4, name: 'Ana Martínez', email: 'ana@email.com', date: '2024-06-28', status: 'Pendiente' },
-          { id: 5, name: 'Luis Rodríguez', email: 'luis@email.com', date: '2024-06-27', status: 'Activo' },
-          { id: 6, name: 'Carmen Silva', email: 'carmen@email.com', date: '2024-06-27', status: 'Activo' },
-          { id: 7, name: 'Pedro González', email: 'pedro@email.com', date: '2024-06-26', status: 'Activo' },
-          { id: 8, name: 'Laura Díaz', email: 'laura@email.com', date: '2024-06-26', status: 'Inactivo' },
-          { id: 9, name: 'Miguel Torres', email: 'miguel@email.com', date: '2024-06-25', status: 'Activo' },
-          { id: 10, name: 'Sofia Herrera', email: 'sofia@email.com', date: '2024-06-25', status: 'Activo' }
-        ]);
-        
-      } finally {
-        setLoading(false);
+  // 🔥 FUNCIÓN PARA OBTENER USUARIO ACTUAL DESDE TOKEN JWT
+  const fetchCurrentUser = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('No token found');
+        return;
       }
+
+      const res = await fetch(`${API_BASE_URL}/users/verify`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to verify token');
+      }
+
+      const data = await res.json();
+      
+      // Extraer nombre del usuario desde la respuesta
+      const userName = data.user?.nombre || data.nombre || 'Admin';
+      const userRole = data.user?.rol || data.rol || 'administrador';
+      
+      setCurrentUser({
+        name: userName.split(' ')[0], // Solo el primer nombre
+        fullName: userName,
+        role: userRole,
+        avatar: userName.charAt(0).toUpperCase()
+      });
+
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+      // Mantener valores por defecto si falla
+      setCurrentUser({ name: 'Admin', avatar: 'A' });
+    }
+  }, [API_BASE_URL]);
+
+  // Función reutilizable para fetch con manejo de errores
+  const fetchData = useCallback(async (endpoint) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}${endpoint}`);
+      if (!res.ok) {
+        const text = await res.text();
+        console.error(`HTTP ${res.status} ${endpoint}:`, text);
+        throw new Error(`HTTP ${res.status}`);
+      }
+      return await res.json();
+    } catch (error) {
+      console.error(`Error fetching ${endpoint}:`, error);
+      throw error;
+    }
+  }, [API_BASE_URL]);
+
+  // Datos de fallback para desarrollo
+  const fallbackData = useMemo(() => ({
+    metrics: {
+      totalUsers: 1248,
+      totalOrders: 342,
+      dailyRevenue: 56020,
+      weeklyOrders: 164
+    },
+    monthlySales: [
+      { day: '1', ventas: 15000 },
+      { day: '5', ventas: 18000 },
+      { day: '10', ventas: 22000 },
+      { day: '15', ventas: 19000 },
+      { day: '20', ventas: 25000 },
+      { day: '25', ventas: 28000 },
+      { day: '30', ventas: 32000 }
+    ],
+    weeklySales: [
+      { day: 'Lun', ventas: 4500 },
+      { day: 'Mar', ventas: 5200 },
+      { day: 'Mié', ventas: 4800 },
+      { day: 'Jue', ventas: 6100 },
+      { day: 'Vie', ventas: 7300 },
+      { day: 'Sáb', ventas: 8900 },
+      { day: 'Dom', ventas: 6800 }
+    ],
+    newUsers: [
+      { semana: 'Sem 1', usuarios: 45 },
+      { semana: 'Sem 2', usuarios: 52 },
+      { semana: 'Sem 3', usuarios: 38 },
+      { semana: 'Sem 4', usuarios: 67 }
+    ],
+    topProducts: [
+      { name: 'Hamburguesa Clásica', value: 35, color: '#FF6B6B' },
+      { name: 'Papas Fritas', value: 25, color: '#4ECDC4' },
+      { name: 'Hot Dog Especial', value: 20, color: '#45B7D1' },
+      { name: 'Bebidas', value: 15, color: '#96CEB4' },
+      { name: 'Otros', value: 5, color: '#FFEAA7' }
+    ],
+    recentUsers: [
+      { id: 1, name: 'Juan Pérez', email: 'juan@email.com', date: '2024-06-29', status: 'Activo' },
+      { id: 2, name: 'María García', email: 'maria@email.com', date: '2024-06-29', status: 'Activo' },
+      { id: 3, name: 'Carlos López', email: 'carlos@email.com', date: '2024-06-28', status: 'Activo' },
+      { id: 4, name: 'Ana Martínez', email: 'ana@email.com', date: '2024-06-28', status: 'Pendiente' },
+      { id: 5, name: 'Luis Rodríguez', email: 'luis@email.com', date: '2024-06-27', status: 'Activo' },
+      { id: 6, name: 'Carmen Silva', email: 'carmen@email.com', date: '2024-06-27', status: 'Activo' },
+      { id: 7, name: 'Pedro González', email: 'pedro@email.com', date: '2024-06-26', status: 'Activo' },
+      { id: 8, name: 'Laura Díaz', email: 'laura@email.com', date: '2024-06-26', status: 'Inactivo' },
+      { id: 9, name: 'Miguel Torres', email: 'miguel@email.com', date: '2024-06-25', status: 'Activo' },
+      { id: 10, name: 'Sofia Herrera', email: 'sofia@email.com', date: '2024-06-25', status: 'Activo' }
+    ]
+  }), []);
+
+  // 🚀 CARGA PARALELA DE DATOS CON Promise.all
+  const loadDashboardData = useCallback(async (showToast = false) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Carga paralela de todos los datos
+      const [
+        metricsData,
+        monthlySalesData,
+        weeklySalesData,
+        newUsersData,
+        topProductsData,
+        recentUsersData
+      ] = await Promise.all([
+        fetchData('/dashboard/metrics'),
+        fetchData('/dashboard/monthly-sales'),
+        fetchData('/dashboard/weekly-sales'),
+        fetchData('/dashboard/new-users'),
+        fetchData('/dashboard/top-products'),
+        fetchData('/dashboard/recent-users')
+      ]);
+
+      setMetrics(metricsData);
+      setMonthlySales(monthlySalesData);
+      setWeeklySales(weeklySalesData);
+      setNewUsers(newUsersData);
+      setTopProducts(topProductsData);
+      setRecentUsers(recentUsersData);
+
+      // Toast solo si es refresh manual
+      if (showToast) {
+        toast.success('📊 Dashboard actualizado correctamente', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true
+        });
+      }
+
+    } catch (error) {
+      console.error('Dashboard data loading error:', error);
+      setError('Error al cargar los datos del dashboard');
+      
+      // Usar datos de fallback
+      setMetrics(fallbackData.metrics);
+      setMonthlySales(fallbackData.monthlySales);
+      setWeeklySales(fallbackData.weeklySales);
+      setNewUsers(fallbackData.newUsers);
+      setTopProducts(fallbackData.topProducts);
+      setRecentUsers(fallbackData.recentUsers);
+
+      if (showToast) {
+        toast.warning('⚠️ Usando datos de ejemplo (Backend no disponible)', {
+          position: "top-right",
+          autoClose: 4000
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchData, fallbackData]);
+
+  // Carga inicial (SIN toast para evitar parpadeo)
+  useEffect(() => {
+    const initDashboard = async () => {
+      await fetchCurrentUser();
+      await loadDashboardData(false); // false = no mostrar toast
     };
+    initDashboard();
+  }, [fetchCurrentUser, loadDashboardData]);
 
-    loadDashboardData();
-  }, []);
+  // 🔄 Refresh manual (CON toast)
+  const handleRefresh = useCallback(() => {
+    loadDashboardData(true); // true = mostrar toast
+  }, [loadDashboardData]);
 
-  // Función para refrescar los datos
-  const refreshData = () => {
-    window.location.reload();
-  };
+  // Navegación
+  const handleNavigation = useCallback((path) => {
+    navigate(path);
+  }, [navigate]);
 
-  const menuItems = [
+  // Items del menú
+  const menuItems = useMemo(() => [
     { icon: Home, label: 'Dashboard', active: true, path: '/dashboard' },
     { icon: Users, label: 'Usuarios', path: '/UsersCrud' },
     { icon: ShoppingCart, label: 'Pedidos', path: '/ManualSale' },
@@ -159,13 +232,14 @@ const Dashboard = () => {
     { icon: History, label: 'Historial de inventario', path: '/InventoryHistory' },
     { icon: FileText, label: 'Reportes', path: '/reports' },
     { icon: Settings, label: 'Configuración', path: '/settings' }
-  ];
+  ], []);
 
- const handleNavigation = (path) => {
-    console.log(`Navigating to: ${path}`);
-    navigate(path); 
-  };
+  // Toggle sidebar
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen(prev => !prev);
+  }, []);
 
+  // Loading state
   if (loading) {
     return (
       <div className="loading-container">
@@ -177,6 +251,9 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-container">
+      {/* Toast Container */}
+      <ToastContainer limit={3} />
+
       {/* Sidebar */}
       <div className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
         <div className="logo">
@@ -200,21 +277,25 @@ const Dashboard = () => {
             </a>
           ))}
         </nav>
-
-       
       </div>
 
       {/* Overlay para móvil */}
-      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>}
+      {sidebarOpen && (
+        <div 
+          className="sidebar-overlay" 
+          onClick={toggleSidebar}
+        ></div>
+      )}
 
       {/* Main Content */}
       <div className="main-content-dash">
-        {/* Header-dash */}
+        {/* Header */}
         <header className="header-dash">
           <div className="header-left-dash">
             <button 
               className="menu-button"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={toggleSidebar}
+              title="Toggle menu"
             >
               {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -222,13 +303,18 @@ const Dashboard = () => {
           </div>
           
           <div className="header-right-dash">
-            <button className="refresh-button" onClick={refreshData} title="Actualizar datos">
-              <TrendingUp size={20} />
+            <button 
+              className="refresh-button" 
+              onClick={handleRefresh} 
+              title="Actualizar datos"
+            >
+              <RefreshCw size={20} />
+              <span>Actualizar</span>
             </button>
             <Bell size={24} className="notification-icon" />
-            <div className="user-info">
-              <span className="user-name">Admin</span>
-              <div className="user-avatar">A</div>
+            <div className="user-info" title={currentUser.fullName || currentUser.name}>
+              <span className="user-name">{currentUser.name}</span>
+              <div className="user-avatar">{currentUser.avatar}</div>
             </div>
           </div>
         </header>
@@ -237,7 +323,7 @@ const Dashboard = () => {
         {error && (
           <div className="error-message">
             <p>{error}</p>
-            <button onClick={refreshData}>Reintentar</button>
+            <button onClick={handleRefresh}>Reintentar</button>
           </div>
         )}
 
