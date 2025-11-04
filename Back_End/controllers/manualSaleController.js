@@ -371,7 +371,7 @@ const registrarVenta = async (req, res) => {
       }
       
       // Insertar en pedido_producto
-      const [productoResult] = await connection.query(`
+      await connection.query(`
         INSERT INTO pedido_producto (
           idPedido,
           idProducto,
@@ -389,17 +389,17 @@ const registrarVenta = async (req, res) => {
         producto.notas || null
       ]);
       
-      const idPedidoProducto = productoResult.insertId;
-      
-      // Insertar personalizaciones si existen
+      // CORRECCIÓN CRÍTICA: Insertar personalizaciones usando idPedido e idProducto
+      // según la estructura de la tabla pedido_personalizacion en tu BD
       if (producto.personalizaciones && producto.personalizaciones.length > 0) {
         for (const idPersonalizacion of producto.personalizaciones) {
           await connection.query(`
             INSERT INTO pedido_personalizacion (
-              idPedidoProducto,
+              idPedido,
+              idProducto,
               idPersonalizacion
-            ) VALUES (?, ?)
-          `, [idPedidoProducto, idPersonalizacion]);
+            ) VALUES (?, ?, ?)
+          `, [idPedido, producto.idProducto, idPersonalizacion]);
         }
       }
       

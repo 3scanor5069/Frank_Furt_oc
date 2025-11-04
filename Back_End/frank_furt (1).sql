@@ -1,0 +1,964 @@
+-- phpMyAdmin SQL Dump
+-- version 5.2.1
+-- https://www.phpmyadmin.net/
+--
+-- Servidor: 127.0.0.1
+-- Tiempo de generación: 04-11-2025 a las 11:30:27
+-- Versión del servidor: 10.4.32-MariaDB
+-- Versión de PHP: 8.0.30
+
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+
+--
+-- Base de datos: `frank_furt`
+--
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `categoria`
+--
+
+CREATE TABLE `categoria` (
+  `id` int(11) NOT NULL,
+  `nombre` varchar(100) NOT NULL,
+  `descripcion` text DEFAULT NULL,
+  `activo` tinyint(1) DEFAULT 1,
+  `fecha_creacion` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `categoria`
+--
+
+INSERT INTO `categoria` (`id`, `nombre`, `descripcion`, `activo`, `fecha_creacion`) VALUES
+(1, 'Hamburguesas', 'Clásicas y gourmet', 1, '2025-08-21 15:18:35'),
+(2, 'Bebidas', 'Frías y calientes', 1, '2025-08-21 15:18:35'),
+(3, 'Papas', 'Papas fritas y acompañamientos', 1, '2025-08-21 15:18:35'),
+(4, 'Postres', 'Dulces y postres', 1, '2025-08-21 15:18:35');
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `empleado_info`
+--
+
+CREATE TABLE `empleado_info` (
+  `idEmpleado` int(11) NOT NULL COMMENT 'FK a usuario.idUsuario',
+  `cargo` varchar(50) DEFAULT NULL,
+  `salario` decimal(10,2) DEFAULT 0.00,
+  `idSede` int(11) NOT NULL,
+  `fecha_ingreso` date DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `insumo`
+--
+
+CREATE TABLE `insumo` (
+  `idInsumo` int(11) NOT NULL,
+  `nombre` varchar(100) NOT NULL,
+  `unidad_medida` varchar(20) NOT NULL COMMENT 'Ej: unidad, gramo, mililitro, litro, kg',
+  `activo` tinyint(1) DEFAULT 1,
+  `fecha_creacion` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `insumo`
+--
+
+INSERT INTO `insumo` (`idInsumo`, `nombre`, `unidad_medida`, `activo`, `fecha_creacion`) VALUES
+(1, 'Pan de Hamburguesa', 'unidad', 1, '2025-09-28 02:35:27'),
+(2, 'Carne de Res 150g', 'unidad', 1, '2025-09-28 02:35:27'),
+(3, 'Lechuga', 'gramo', 1, '2025-09-28 02:35:27'),
+(4, 'Tomate', 'unidad', 1, '2025-09-28 02:35:27'),
+(5, 'Salsa BBQ', 'mililitro', 1, '2025-09-28 02:35:27'),
+(6, 'Papas para freir', 'kg', 1, '2025-09-28 02:35:27');
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `insumos_config`
+--
+
+CREATE TABLE `insumos_config` (
+  `idInsumo` int(11) NOT NULL,
+  `nombre_insumo` varchar(255) NOT NULL,
+  `unidad_medida` enum('paquete','kg','litro','unidades','gramos','ml') NOT NULL,
+  `stock_minimo_insumo` decimal(10,2) NOT NULL DEFAULT 10.00,
+  `idSede` int(11) NOT NULL DEFAULT 1,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Volcado de datos para la tabla `insumos_config`
+--
+
+INSERT INTO `insumos_config` (`idInsumo`, `nombre_insumo`, `unidad_medida`, `stock_minimo_insumo`, `idSede`, `fecha_creacion`, `fecha_actualizacion`) VALUES
+(1, 'Paquete de Pan (x24)', 'paquete', 20.00, 1, '2025-11-03 22:31:03', '2025-11-03 22:31:03'),
+(2, 'Paquete de Salchichas (x12)', 'paquete', 15.00, 1, '2025-11-03 22:31:03', '2025-11-03 22:31:03'),
+(3, 'Queso Cheddar', 'kg', 5.00, 1, '2025-11-03 22:31:03', '2025-11-03 22:31:03'),
+(4, 'Lechuga', 'kg', 3.00, 1, '2025-11-03 22:31:03', '2025-11-03 22:31:03'),
+(5, 'Tomate', 'kg', 4.00, 1, '2025-11-03 22:31:03', '2025-11-03 22:31:03'),
+(6, 'Cebolla', 'kg', 3.00, 1, '2025-11-03 22:31:03', '2025-11-03 22:31:03'),
+(7, 'Papas Fritas Congeladas', 'kg', 20.00, 1, '2025-11-03 22:31:03', '2025-11-03 22:31:03'),
+(8, 'Salsa de Tomate Ketchup', 'litro', 5.00, 1, '2025-11-03 22:31:03', '2025-11-03 22:31:03'),
+(9, 'Mostaza', 'litro', 3.00, 1, '2025-11-03 22:31:03', '2025-11-03 22:31:03'),
+(10, 'Mayonesa', 'litro', 4.00, 1, '2025-11-03 22:31:03', '2025-11-03 22:31:03'),
+(11, 'Aceite para freír', 'litro', 10.00, 1, '2025-11-03 22:31:03', '2025-11-03 22:31:03'),
+(12, 'Servilletas', 'paquete', 10.00, 1, '2025-11-03 22:31:03', '2025-11-03 22:31:03'),
+(13, 'Vasos desechables', 'paquete', 15.00, 1, '2025-11-03 22:31:03', '2025-11-03 22:31:03'),
+(14, 'Platos desechables', 'paquete', 15.00, 1, '2025-11-03 22:31:03', '2025-11-03 22:31:03');
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `inventario`
+--
+
+CREATE TABLE `inventario` (
+  `idInventario` int(11) NOT NULL,
+  `idInsumo` int(11) NOT NULL,
+  `idSede` int(11) NOT NULL,
+  `stockDisponible` int(11) DEFAULT 0,
+  `stock_minimo` int(11) DEFAULT 10,
+  `stock_maximo` int(11) DEFAULT 1000,
+  `fechaActualizacion` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `idProducto` int(10) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `inventario`
+--
+
+INSERT INTO `inventario` (`idInventario`, `idInsumo`, `idSede`, `stockDisponible`, `stock_minimo`, `stock_maximo`, `fechaActualizacion`, `idProducto`) VALUES
+(1, 1, 1, 100, 10, 1000, '2025-09-29 19:33:40', 2),
+(2, 2, 1, 80, 10, 1000, '2025-10-03 00:52:55', 4),
+(3, 3, 1, 5000, 10, 1000, '2025-10-03 00:53:04', 5),
+(4, 6, 1, 50, 10, 1000, '2025-10-03 00:53:09', 7);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `inventario_general`
+--
+
+CREATE TABLE `inventario_general` (
+  `idMovimiento` int(11) NOT NULL,
+  `nombre_insumo` varchar(255) NOT NULL,
+  `cantidad_movida` decimal(10,2) NOT NULL,
+  `tipo_movimiento` enum('entrada','salida') NOT NULL,
+  `motivo_detalle` enum('compra','venta/consumo','merma/desperdicio','ajuste_conteo') NOT NULL,
+  `observaciones` text DEFAULT NULL,
+  `fecha_movimiento` datetime NOT NULL DEFAULT current_timestamp(),
+  `idSede` int(11) NOT NULL DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Volcado de datos para la tabla `inventario_general`
+--
+
+INSERT INTO `inventario_general` (`idMovimiento`, `nombre_insumo`, `cantidad_movida`, `tipo_movimiento`, `motivo_detalle`, `observaciones`, `fecha_movimiento`, `idSede`) VALUES
+(1, 'Paquete de Pan (x24)', 50.00, 'entrada', 'compra', 'Compra inicial - Proveedor Panadería Central', '2025-11-03 22:31:04', 1),
+(2, 'Paquete de Salchichas (x12)', 30.00, 'entrada', 'compra', 'Compra inicial - Proveedor Carnes Selectas', '2025-11-03 22:31:04', 1),
+(3, 'Queso Cheddar', 10.00, 'entrada', 'compra', 'Compra inicial - Proveedor Lácteos del Valle', '2025-11-03 22:31:04', 1),
+(4, 'Lechuga', 8.00, 'entrada', 'compra', 'Compra inicial - Proveedor Verduras Frescas', '2025-11-03 22:31:04', 1),
+(5, 'Tomate', 10.00, 'entrada', 'compra', 'Compra inicial - Proveedor Verduras Frescas', '2025-11-03 22:31:04', 1),
+(6, 'Cebolla', 7.00, 'entrada', 'compra', 'Compra inicial - Proveedor Verduras Frescas', '2025-11-03 22:31:04', 1),
+(7, 'Papas Fritas Congeladas', 40.00, 'entrada', 'compra', 'Compra inicial - Proveedor Alimentos McCain', '2025-11-03 22:31:04', 1),
+(8, 'Salsa de Tomate Ketchup', 12.00, 'entrada', 'compra', 'Compra inicial - Proveedor Heinz', '2025-11-03 22:31:04', 1),
+(9, 'Mostaza', 8.00, 'entrada', 'compra', 'Compra inicial - Proveedor French\'s', '2025-11-03 22:31:04', 1),
+(10, 'Mayonesa', 10.00, 'entrada', 'compra', 'Compra inicial - Proveedor Hellmann\'s', '2025-11-03 22:31:04', 1),
+(11, 'Aceite para freír', 20.00, 'entrada', 'compra', 'Compra inicial - Proveedor Grasas Industriales', '2025-11-03 22:31:04', 1),
+(12, 'Servilletas', 25.00, 'entrada', 'compra', 'Compra inicial - Proveedor Papelería La Estrella', '2025-11-03 22:31:04', 1),
+(13, 'Vasos desechables', 30.00, 'entrada', 'compra', 'Compra inicial - Proveedor Papelería La Estrella', '2025-11-03 22:31:04', 1),
+(14, 'Platos desechables', 30.00, 'entrada', 'compra', 'Compra inicial - Proveedor Papelería La Estrella', '2025-11-03 22:31:04', 1),
+(15, 'Paquete de Pan (x24)', 10.00, 'salida', 'venta/consumo', 'Consumo diario del día 01/11/2025', '2025-11-03 22:31:04', 1),
+(16, 'Paquete de Salchichas (x12)', 8.00, 'salida', 'venta/consumo', 'Consumo diario del día 01/11/2025', '2025-11-03 22:31:04', 1),
+(17, 'Papas Fritas Congeladas', 5.00, 'salida', 'venta/consumo', 'Consumo diario del día 01/11/2025', '2025-11-03 22:31:04', 1),
+(18, 'Lechuga', 1.50, 'salida', 'merma/desperdicio', 'Lechuga dañada por mal almacenamiento', '2025-11-03 22:31:04', 1),
+(19, 'Lechuga', 6.50, 'salida', 'venta/consumo', 'cosumo en produccion', '2025-11-03 22:54:38', 1),
+(20, 'Cebolla', 7.00, 'salida', 'venta/consumo', 'gasto en produccion', '2025-11-03 22:55:31', 1);
+
+--
+-- Disparadores `inventario_general`
+--
+DELIMITER $$
+CREATE TRIGGER `before_insert_inventario_general` BEFORE INSERT ON `inventario_general` FOR EACH ROW BEGIN
+    IF NEW.cantidad_movida <= 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'La cantidad_movida debe ser mayor a 0';
+    END IF;
+END
+$$
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `inventario_movimientos`
+--
+
+CREATE TABLE `inventario_movimientos` (
+  `idMovimiento` int(11) NOT NULL,
+  `idInventario` int(11) NOT NULL,
+  `tipo` enum('entrada','salida','ajuste') NOT NULL,
+  `cantidad` int(11) NOT NULL,
+  `fecha` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `menu`
+--
+
+CREATE TABLE `menu` (
+  `idMenu` int(11) NOT NULL,
+  `nombre` varchar(100) NOT NULL,
+  `descripcion` text DEFAULT NULL,
+  `categoria` varchar(50) DEFAULT NULL,
+  `activo` tinyint(1) DEFAULT 1,
+  `fecha_creacion` timestamp NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `idSede` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `menu`
+--
+
+INSERT INTO `menu` (`idMenu`, `nombre`, `descripcion`, `categoria`, `activo`, `fecha_creacion`, `fecha_actualizacion`, `idSede`) VALUES
+(1, 'Menú Principal', 'Menú principal de la sede', 'General', 1, '2025-08-21 15:18:35', '2025-08-21 15:18:35', 1),
+(2, 'Menú Principal', 'Menú de sede central', 'General', 1, '2025-08-21 15:22:43', '2025-08-21 15:22:43', 1);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `mesa`
+--
+
+CREATE TABLE `mesa` (
+  `idMesa` int(11) NOT NULL,
+  `numero` varchar(20) NOT NULL,
+  `idSede` int(11) NOT NULL,
+  `estado` enum('disponible','ocupada','limpieza') DEFAULT 'disponible'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `mesa`
+--
+
+INSERT INTO `mesa` (`idMesa`, `numero`, `idSede`, `estado`) VALUES
+(1, 'Mesa 1', 1, 'disponible'),
+(2, 'Mesa 2', 1, 'disponible'),
+(3, 'Mesa 3', 1, 'disponible'),
+(4, 'Mesa 4', 1, 'disponible'),
+(5, 'Mesa 5', 1, 'disponible'),
+(6, 'Mesa 6', 1, 'disponible'),
+(7, 'Mesa 7', 1, 'disponible'),
+(8, 'Mesa 8', 1, 'disponible'),
+(9, 'Mesa 1', 1, 'disponible'),
+(10, 'Mesa 2', 1, 'ocupada'),
+(11, 'Mesa 3', 2, 'disponible'),
+(12, 'Mesa 1', 1, 'disponible'),
+(13, 'Mesa 2', 1, 'ocupada'),
+(14, 'Mesa 3', 2, 'disponible'),
+(15, 'Mesa 1', 1, 'disponible'),
+(16, 'Mesa 2', 1, 'ocupada'),
+(17, 'Mesa 3', 2, 'disponible'),
+(18, 'Mesa 1', 1, 'disponible'),
+(19, 'Mesa 2', 1, 'ocupada'),
+(20, 'Mesa 3', 2, 'disponible'),
+(21, '2', 1, 'disponible'),
+(22, '2', 1, 'disponible'),
+(23, '4', 1, 'disponible'),
+(24, '4', 1, 'disponible'),
+(25, '4', 1, 'disponible'),
+(26, '6', 1, 'disponible'),
+(27, '6', 1, 'disponible'),
+(28, '8', 1, 'disponible'),
+(29, '1', 1, 'disponible'),
+(30, '1', 1, 'disponible');
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `pago`
+--
+
+CREATE TABLE `pago` (
+  `idPago` int(11) NOT NULL,
+  `idPedido` int(11) NOT NULL,
+  `metodo` enum('efectivo','tarjeta','transferencia') NOT NULL,
+  `monto` decimal(10,2) NOT NULL,
+  `fecha` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `pedido`
+--
+
+CREATE TABLE `pedido` (
+  `idPedido` int(11) NOT NULL,
+  `fecha` timestamp NOT NULL DEFAULT current_timestamp(),
+  `estado` enum('pendiente','en preparación','listo','entregado','cancelado') DEFAULT 'pendiente',
+  `total` decimal(10,2) DEFAULT 0.00,
+  `idUsuario` int(11) NOT NULL DEFAULT 1 COMMENT 'FK a usuario.idUsuario',
+  `idSede` int(11) NOT NULL,
+  `idMesa` int(11) DEFAULT NULL,
+  `tipo_pedido` enum('mesa','domicilio','llevar') DEFAULT 'domicilio',
+  `observaciones` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `pedido_personalizacion`
+--
+
+CREATE TABLE `pedido_personalizacion` (
+  `id` int(11) NOT NULL,
+  `idPedido` int(11) NOT NULL,
+  `idProducto` int(11) NOT NULL,
+  `idPersonalizacion` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `pedido_producto`
+--
+
+CREATE TABLE `pedido_producto` (
+  `idPedido` int(11) NOT NULL,
+  `idProducto` int(11) NOT NULL,
+  `cantidad` int(11) DEFAULT 1,
+  `precio_unitario` decimal(10,2) NOT NULL,
+  `subtotal` decimal(10,2) GENERATED ALWAYS AS (`cantidad` * `precio_unitario`) STORED
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `personalizacionproducto`
+--
+
+CREATE TABLE `personalizacionproducto` (
+  `idPersonalizacion` int(11) NOT NULL,
+  `descripcion` varchar(100) NOT NULL,
+  `costoExtra` decimal(10,2) DEFAULT 0.00,
+  `activo` tinyint(1) DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `producto`
+--
+
+CREATE TABLE `producto` (
+  `idProducto` int(11) NOT NULL,
+  `nombre` varchar(100) NOT NULL,
+  `precio` decimal(10,2) NOT NULL,
+  `disponible` tinyint(1) DEFAULT 1,
+  `idMenu` int(11) NOT NULL,
+  `idCategoria` int(11) NOT NULL,
+  `descripcion` text DEFAULT NULL,
+  `imagen_url` varchar(255) DEFAULT NULL,
+  `fecha_creacion` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `producto`
+--
+
+INSERT INTO `producto` (`idProducto`, `nombre`, `precio`, `disponible`, `idMenu`, `idCategoria`, `descripcion`, `imagen_url`, `fecha_creacion`) VALUES
+(2, 'Coca Cola 350ml', 3000.00, 1, 1, 2, 'Bebida gaseosa', NULL, '2025-08-21 15:18:35'),
+(4, 'Hamburguesa BBQ', 18000.00, 1, 1, 1, 'Carne, salsa BBQ, cebolla caramelizada', NULL, '2025-08-21 15:22:43'),
+(5, 'Papas Fritas', 6000.00, 1, 1, 3, 'Papas fritas medianas', NULL, '2025-08-21 15:22:43'),
+(6, 'Sprite 350ml', 3000.00, 1, 1, 2, 'Bebida gaseosa', NULL, '2025-08-21 15:22:43'),
+(7, 'Brownie con Helado', 8000.00, 1, 1, 4, 'Postre dulce', '', '2025-08-21 15:22:43'),
+(26, 'Gaseosa 350ml', 4000.00, 1, 1, 3, 'Botella de gaseosa', NULL, '2025-10-02 19:58:31'),
+(28, 'Pizza Personal', 20000.00, 1, 1, 2, 'Pizza de 4 porciones con ingredientes al gusto', NULL, '2025-10-02 19:58:49'),
+(30, 'Hamburguesa Clásica', 18000.00, 1, 1, 1, 'Carne 120g, queso, lechuga, tomate', 'hamburguesa.jpg', '2025-10-02 20:03:01'),
+(31, 'Papas Fritas', 8000.00, 1, 1, 3, 'Papas doradas y crocantes', 'papas.jpg', '2025-10-02 20:03:01'),
+(32, 'Coca-Cola 400ml', 5000.00, 1, 1, 2, 'Bebida gaseosa fría', 'cocacola.jpg', '2025-10-02 20:03:01');
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `receta`
+--
+
+CREATE TABLE `receta` (
+  `idReceta` int(11) NOT NULL,
+  `idProducto` int(11) NOT NULL COMMENT 'Producto final (Hamburguesa)',
+  `idInsumo` int(11) NOT NULL COMMENT 'Materia prima (Pan, Carne, etc.)',
+  `cantidad_requerida` decimal(10,2) NOT NULL COMMENT 'Cantidad de insumo para 1 unidad del producto'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `receta`
+--
+
+INSERT INTO `receta` (`idReceta`, `idProducto`, `idInsumo`, `cantidad_requerida`) VALUES
+(5, 5, 6, 0.25);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `rol`
+--
+
+CREATE TABLE `rol` (
+  `idRol` int(11) NOT NULL,
+  `nombreRol` varchar(50) NOT NULL,
+  `descripcion` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `rol`
+--
+
+INSERT INTO `rol` (`idRol`, `nombreRol`, `descripcion`) VALUES
+(1, 'admin', 'Administrador del sistema con acceso total'),
+(2, 'empleado', 'Empleado del restaurante con acceso limitado'),
+(3, 'cliente', 'Cliente que realiza pedidos y gestiona su cuenta');
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `sede`
+--
+
+CREATE TABLE `sede` (
+  `idSede` int(11) NOT NULL,
+  `nombre` varchar(100) NOT NULL,
+  `direccion` varchar(200) NOT NULL,
+  `ciudad` varchar(100) NOT NULL,
+  `telefono` varchar(20) DEFAULT NULL,
+  `activo` tinyint(1) DEFAULT 1,
+  `fecha_creacion` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `sede`
+--
+
+INSERT INTO `sede` (`idSede`, `nombre`, `direccion`, `ciudad`, `telefono`, `activo`, `fecha_creacion`) VALUES
+(1, 'Frank Furt Centro', 'Calle 10 #15-30', 'Bogotá', '601-555-0100', 1, '2025-08-21 15:18:35'),
+(2, 'Sede Secundaria', 'Carrera 45 #20-15', '', NULL, 1, '2025-10-02 19:53:02');
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `usuario`
+--
+
+CREATE TABLE `usuario` (
+  `idUsuario` int(11) NOT NULL,
+  `nombre` varchar(100) NOT NULL,
+  `correo` varchar(150) NOT NULL,
+  `telefono` varchar(20) NOT NULL,
+  `direccion` varchar(200) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `rol` enum('administrador','empleado','cliente') NOT NULL DEFAULT 'cliente' COMMENT 'Rol del usuario',
+  `activo` tinyint(1) DEFAULT 1,
+  `fecha_registro` timestamp NOT NULL DEFAULT current_timestamp(),
+  `ultimo_acceso` timestamp NULL DEFAULT NULL,
+  `reset_token` varchar(255) DEFAULT NULL,
+  `reset_token_expires` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `usuario`
+--
+
+INSERT INTO `usuario` (`idUsuario`, `nombre`, `correo`, `telefono`, `direccion`, `password`, `rol`, `activo`, `fecha_registro`, `ultimo_acceso`, `reset_token`, `reset_token_expires`) VALUES
+(1, 'Cliente General', 'general@frankfurt.com', '', '', 'default_hash', 'cliente', 1, '2025-10-14 05:12:10', NULL, NULL, NULL),
+(2, 'tarlo mendes', 'tarlo@gmail.com', '', '', '$2b$10$yXReb5fMTyByeUIzkwKcHO4T3z05.LGfSZ3LKMUWpvLcqxxm./paK', 'cliente', 1, '2025-10-14 06:26:10', NULL, NULL, NULL),
+(3, 'taniasss gutierres', 'tania@gmail.com', '', '', '$2b$10$Ub8Lj4MWiPcNtX4XFQw.Duzcq53nDdTwTdmbGFlL5cD3xm6sBattG', '', 0, '2025-10-14 06:41:16', '2025-10-20 04:06:50', NULL, NULL),
+(4, 'camilo plazas', 'cami@gmail.com', '', '', '$2b$10$Z95K/ZN2g5YMDST90L3auOOP19cIYVPmK1zhdEKvr9AhsYuDOU3JO', 'cliente', 1, '2025-10-21 04:02:09', '2025-10-21 04:04:02', NULL, NULL),
+(5, 'syrax targueryen', 'syrax@gmail.com', '', '', '$2b$10$TU5YCTNU1SYR1KVek/E0KuqPwv3/yhLIZ9VMain6sUkheAcvwdoY2', 'administrador', 1, '2025-10-21 04:08:46', '2025-11-04 06:14:15', NULL, NULL),
+(6, 'julian plazas', 'juli@gmail.com', '82734672437', 'calle 20', '$2b$10$8w5ONQaIXY.548E5zy07QOlkoI1fYw5xDZf.IaMACMmS31W06m.QK', 'cliente', 1, '2025-11-04 03:51:20', NULL, NULL, NULL),
+(7, 'edsson garzon', 'edssongarzon62@gmail.com', '', '', '$2b$10$Oe7qWMt66VV6XfQxrqJgy./8OtrXEuNhW6x1KElOYbVQOvozTso/W', 'cliente', 1, '2025-11-04 08:26:21', NULL, NULL, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura Stand-in para la vista `vista_pedidos`
+-- (Véase abajo para la vista actual)
+--
+CREATE TABLE `vista_pedidos` (
+`idPedido` int(11)
+,`fecha` timestamp
+,`estado` enum('pendiente','en preparación','listo','entregado','cancelado')
+,`total` decimal(10,2)
+,`cliente` varchar(100)
+,`sede` varchar(100)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura Stand-in para la vista `vista_pedidos_activos_mesa`
+-- (Véase abajo para la vista actual)
+--
+CREATE TABLE `vista_pedidos_activos_mesa` (
+`idPedido` int(11)
+,`fecha` timestamp
+,`estado` enum('pendiente','en preparación','listo','entregado','cancelado')
+,`total` decimal(10,2)
+,`observaciones` text
+,`numeroMesa` varchar(20)
+,`idMesa` int(11)
+,`estadoMesa` enum('disponible','ocupada','limpieza')
+,`sede` varchar(100)
+,`idSede` int(11)
+,`cantidadProductos` bigint(21)
+,`cliente` binary(0)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura Stand-in para la vista `vista_productos`
+-- (Véase abajo para la vista actual)
+--
+CREATE TABLE `vista_productos` (
+`idProducto` int(11)
+,`nombre` varchar(100)
+,`precio` decimal(10,2)
+,`descripcion` text
+,`categoria` varchar(100)
+,`menu` varchar(100)
+,`sede` varchar(100)
+,`stock` int(11)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura Stand-in para la vista `vista_stock_actual`
+-- (Véase abajo para la vista actual)
+--
+CREATE TABLE `vista_stock_actual` (
+`nombre_insumo` varchar(255)
+,`unidad_medida` enum('paquete','kg','litro','unidades','gramos','ml')
+,`stock_disponible` decimal(32,2)
+,`stock_minimo_insumo` decimal(10,2)
+,`idSede` int(11)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura Stand-in para la vista `vista_stock_insumos_sede`
+-- (Véase abajo para la vista actual)
+--
+CREATE TABLE `vista_stock_insumos_sede` (
+`idInventario` int(11)
+,`nombreSede` varchar(100)
+,`nombreInsumo` varchar(100)
+,`unidad_medida` varchar(20)
+,`stockDisponible` int(11)
+,`stock_minimo` int(11)
+,`estadoStock` varchar(11)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura para la vista `vista_pedidos`
+--
+DROP TABLE IF EXISTS `vista_pedidos`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `vista_pedidos`  AS SELECT `p`.`idPedido` AS `idPedido`, `p`.`fecha` AS `fecha`, `p`.`estado` AS `estado`, `p`.`total` AS `total`, `u`.`nombre` AS `cliente`, `s`.`nombre` AS `sede` FROM ((`pedido` `p` join `usuario` `u` on(`p`.`idUsuario` = `u`.`idUsuario`)) join `sede` `s` on(`p`.`idSede` = `s`.`idSede`)) ;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura para la vista `vista_pedidos_activos_mesa`
+--
+DROP TABLE IF EXISTS `vista_pedidos_activos_mesa`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `vista_pedidos_activos_mesa`  AS SELECT `p`.`idPedido` AS `idPedido`, `p`.`fecha` AS `fecha`, `p`.`estado` AS `estado`, `p`.`total` AS `total`, `p`.`observaciones` AS `observaciones`, `m`.`numero` AS `numeroMesa`, `m`.`idMesa` AS `idMesa`, `m`.`estado` AS `estadoMesa`, `s`.`nombre` AS `sede`, `s`.`idSede` AS `idSede`, count(`pp`.`idProducto`) AS `cantidadProductos`, NULL AS `cliente` FROM (((`pedido` `p` join `mesa` `m` on(`p`.`idMesa` = `m`.`idMesa`)) join `sede` `s` on(`p`.`idSede` = `s`.`idSede`)) left join `pedido_producto` `pp` on(`p`.`idPedido` = `pp`.`idPedido`)) WHERE `p`.`estado` in ('pendiente','en preparación') GROUP BY `p`.`idPedido`, `p`.`fecha`, `p`.`estado`, `p`.`total`, `p`.`observaciones`, `m`.`numero`, `m`.`idMesa`, `m`.`estado`, `s`.`nombre`, `s`.`idSede` ORDER BY `p`.`fecha` DESC ;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura para la vista `vista_productos`
+--
+DROP TABLE IF EXISTS `vista_productos`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `vista_productos`  AS SELECT `p`.`idProducto` AS `idProducto`, `p`.`nombre` AS `nombre`, `p`.`precio` AS `precio`, `p`.`descripcion` AS `descripcion`, `c`.`nombre` AS `categoria`, `m`.`nombre` AS `menu`, `s`.`nombre` AS `sede`, coalesce(`i`.`stockDisponible`,0) AS `stock` FROM ((((`producto` `p` join `categoria` `c` on(`p`.`idCategoria` = `c`.`id`)) join `menu` `m` on(`p`.`idMenu` = `m`.`idMenu`)) join `sede` `s` on(`m`.`idSede` = `s`.`idSede`)) left join `inventario` `i` on(`p`.`idProducto` = `i`.`idProducto`)) ;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura para la vista `vista_stock_actual`
+--
+DROP TABLE IF EXISTS `vista_stock_actual`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `vista_stock_actual`  AS SELECT `ic`.`nombre_insumo` AS `nombre_insumo`, `ic`.`unidad_medida` AS `unidad_medida`, coalesce(sum(case when `ig`.`tipo_movimiento` = 'entrada' then `ig`.`cantidad_movida` when `ig`.`tipo_movimiento` = 'salida' then -`ig`.`cantidad_movida` else 0 end),0) AS `stock_disponible`, `ic`.`stock_minimo_insumo` AS `stock_minimo_insumo`, `ic`.`idSede` AS `idSede` FROM (`insumos_config` `ic` left join `inventario_general` `ig` on(`ic`.`nombre_insumo` = `ig`.`nombre_insumo`)) GROUP BY `ic`.`nombre_insumo`, `ic`.`unidad_medida`, `ic`.`stock_minimo_insumo`, `ic`.`idSede` ;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura para la vista `vista_stock_insumos_sede`
+--
+DROP TABLE IF EXISTS `vista_stock_insumos_sede`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `vista_stock_insumos_sede`  AS SELECT `i`.`idInventario` AS `idInventario`, `s`.`nombre` AS `nombreSede`, `ins`.`nombre` AS `nombreInsumo`, `ins`.`unidad_medida` AS `unidad_medida`, `i`.`stockDisponible` AS `stockDisponible`, `i`.`stock_minimo` AS `stock_minimo`, CASE WHEN `i`.`stockDisponible` <= `i`.`stock_minimo` THEN 'Reabastecer' ELSE 'Suficiente' END AS `estadoStock` FROM ((`inventario` `i` join `insumo` `ins` on(`i`.`idInsumo` = `ins`.`idInsumo`)) join `sede` `s` on(`i`.`idSede` = `s`.`idSede`)) ;
+
+--
+-- Índices para tablas volcadas
+--
+
+--
+-- Indices de la tabla `categoria`
+--
+ALTER TABLE `categoria`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `nombre` (`nombre`);
+
+--
+-- Indices de la tabla `empleado_info`
+--
+ALTER TABLE `empleado_info`
+  ADD PRIMARY KEY (`idEmpleado`),
+  ADD KEY `idSede` (`idSede`);
+
+--
+-- Indices de la tabla `insumo`
+--
+ALTER TABLE `insumo`
+  ADD PRIMARY KEY (`idInsumo`);
+
+--
+-- Indices de la tabla `insumos_config`
+--
+ALTER TABLE `insumos_config`
+  ADD PRIMARY KEY (`idInsumo`),
+  ADD UNIQUE KEY `nombre_insumo` (`nombre_insumo`),
+  ADD KEY `idx_nombre_insumo` (`nombre_insumo`),
+  ADD KEY `idx_sede` (`idSede`);
+
+--
+-- Indices de la tabla `inventario`
+--
+ALTER TABLE `inventario`
+  ADD PRIMARY KEY (`idInventario`),
+  ADD UNIQUE KEY `idx_insumo_sede` (`idInsumo`,`idSede`),
+  ADD KEY `idSede` (`idSede`);
+
+--
+-- Indices de la tabla `inventario_general`
+--
+ALTER TABLE `inventario_general`
+  ADD PRIMARY KEY (`idMovimiento`),
+  ADD KEY `idx_nombre_insumo` (`nombre_insumo`),
+  ADD KEY `idx_fecha_movimiento` (`fecha_movimiento`),
+  ADD KEY `idx_tipo_movimiento` (`tipo_movimiento`),
+  ADD KEY `idx_sede` (`idSede`);
+
+--
+-- Indices de la tabla `inventario_movimientos`
+--
+ALTER TABLE `inventario_movimientos`
+  ADD PRIMARY KEY (`idMovimiento`),
+  ADD KEY `idInventario` (`idInventario`);
+
+--
+-- Indices de la tabla `menu`
+--
+ALTER TABLE `menu`
+  ADD PRIMARY KEY (`idMenu`),
+  ADD KEY `idSede` (`idSede`);
+
+--
+-- Indices de la tabla `mesa`
+--
+ALTER TABLE `mesa`
+  ADD PRIMARY KEY (`idMesa`),
+  ADD KEY `idSede` (`idSede`);
+
+--
+-- Indices de la tabla `pago`
+--
+ALTER TABLE `pago`
+  ADD PRIMARY KEY (`idPago`),
+  ADD KEY `idPedido` (`idPedido`);
+
+--
+-- Indices de la tabla `pedido`
+--
+ALTER TABLE `pedido`
+  ADD PRIMARY KEY (`idPedido`),
+  ADD KEY `idSede` (`idSede`),
+  ADD KEY `idMesa` (`idMesa`),
+  ADD KEY `idUsuario` (`idUsuario`);
+
+--
+-- Indices de la tabla `pedido_personalizacion`
+--
+ALTER TABLE `pedido_personalizacion`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idPedido` (`idPedido`),
+  ADD KEY `idProducto` (`idProducto`),
+  ADD KEY `idPersonalizacion` (`idPersonalizacion`);
+
+--
+-- Indices de la tabla `pedido_producto`
+--
+ALTER TABLE `pedido_producto`
+  ADD PRIMARY KEY (`idPedido`,`idProducto`),
+  ADD KEY `idProducto` (`idProducto`);
+
+--
+-- Indices de la tabla `personalizacionproducto`
+--
+ALTER TABLE `personalizacionproducto`
+  ADD PRIMARY KEY (`idPersonalizacion`);
+
+--
+-- Indices de la tabla `producto`
+--
+ALTER TABLE `producto`
+  ADD PRIMARY KEY (`idProducto`),
+  ADD KEY `idMenu` (`idMenu`),
+  ADD KEY `idCategoria` (`idCategoria`);
+
+--
+-- Indices de la tabla `receta`
+--
+ALTER TABLE `receta`
+  ADD PRIMARY KEY (`idReceta`),
+  ADD UNIQUE KEY `idx_producto_insumo` (`idProducto`,`idInsumo`),
+  ADD KEY `idProducto` (`idProducto`),
+  ADD KEY `idInsumo` (`idInsumo`);
+
+--
+-- Indices de la tabla `rol`
+--
+ALTER TABLE `rol`
+  ADD PRIMARY KEY (`idRol`),
+  ADD UNIQUE KEY `nombreRol` (`nombreRol`);
+
+--
+-- Indices de la tabla `sede`
+--
+ALTER TABLE `sede`
+  ADD PRIMARY KEY (`idSede`);
+
+--
+-- Indices de la tabla `usuario`
+--
+ALTER TABLE `usuario`
+  ADD PRIMARY KEY (`idUsuario`),
+  ADD UNIQUE KEY `correo` (`correo`),
+  ADD KEY `idx_usuario_rol` (`rol`);
+
+--
+-- AUTO_INCREMENT de las tablas volcadas
+--
+
+--
+-- AUTO_INCREMENT de la tabla `categoria`
+--
+ALTER TABLE `categoria`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
+--
+-- AUTO_INCREMENT de la tabla `insumo`
+--
+ALTER TABLE `insumo`
+  MODIFY `idInsumo` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+
+--
+-- AUTO_INCREMENT de la tabla `insumos_config`
+--
+ALTER TABLE `insumos_config`
+  MODIFY `idInsumo` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+
+--
+-- AUTO_INCREMENT de la tabla `inventario`
+--
+ALTER TABLE `inventario`
+  MODIFY `idInventario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+
+--
+-- AUTO_INCREMENT de la tabla `inventario_general`
+--
+ALTER TABLE `inventario_general`
+  MODIFY `idMovimiento` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+
+--
+-- AUTO_INCREMENT de la tabla `inventario_movimientos`
+--
+ALTER TABLE `inventario_movimientos`
+  MODIFY `idMovimiento` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `menu`
+--
+ALTER TABLE `menu`
+  MODIFY `idMenu` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT de la tabla `mesa`
+--
+ALTER TABLE `mesa`
+  MODIFY `idMesa` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+
+--
+-- AUTO_INCREMENT de la tabla `pago`
+--
+ALTER TABLE `pago`
+  MODIFY `idPago` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3024;
+
+--
+-- AUTO_INCREMENT de la tabla `pedido`
+--
+ALTER TABLE `pedido`
+  MODIFY `idPedido` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2018;
+
+--
+-- AUTO_INCREMENT de la tabla `pedido_personalizacion`
+--
+ALTER TABLE `pedido_personalizacion`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `personalizacionproducto`
+--
+ALTER TABLE `personalizacionproducto`
+  MODIFY `idPersonalizacion` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `producto`
+--
+ALTER TABLE `producto`
+  MODIFY `idProducto` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
+
+--
+-- AUTO_INCREMENT de la tabla `receta`
+--
+ALTER TABLE `receta`
+  MODIFY `idReceta` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
+--
+-- AUTO_INCREMENT de la tabla `rol`
+--
+ALTER TABLE `rol`
+  MODIFY `idRol` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
+-- AUTO_INCREMENT de la tabla `sede`
+--
+ALTER TABLE `sede`
+  MODIFY `idSede` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT de la tabla `usuario`
+--
+ALTER TABLE `usuario`
+  MODIFY `idUsuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+
+--
+-- Restricciones para tablas volcadas
+--
+
+--
+-- Filtros para la tabla `empleado_info`
+--
+ALTER TABLE `empleado_info`
+  ADD CONSTRAINT `empleado_info_ibfk_1` FOREIGN KEY (`idEmpleado`) REFERENCES `usuario` (`idUsuario`) ON DELETE CASCADE,
+  ADD CONSTRAINT `empleado_info_ibfk_2` FOREIGN KEY (`idSede`) REFERENCES `sede` (`idSede`) ON DELETE CASCADE;
+
+--
+-- Filtros para la tabla `inventario`
+--
+ALTER TABLE `inventario`
+  ADD CONSTRAINT `inventario_ibfk_1` FOREIGN KEY (`idInsumo`) REFERENCES `insumo` (`idInsumo`) ON DELETE CASCADE,
+  ADD CONSTRAINT `inventario_ibfk_2` FOREIGN KEY (`idSede`) REFERENCES `sede` (`idSede`) ON DELETE CASCADE;
+
+--
+-- Filtros para la tabla `inventario_movimientos`
+--
+ALTER TABLE `inventario_movimientos`
+  ADD CONSTRAINT `inventario_movimientos_ibfk_1` FOREIGN KEY (`idInventario`) REFERENCES `inventario` (`idInventario`) ON DELETE CASCADE;
+
+--
+-- Filtros para la tabla `menu`
+--
+ALTER TABLE `menu`
+  ADD CONSTRAINT `menu_ibfk_1` FOREIGN KEY (`idSede`) REFERENCES `sede` (`idSede`) ON DELETE CASCADE;
+
+--
+-- Filtros para la tabla `mesa`
+--
+ALTER TABLE `mesa`
+  ADD CONSTRAINT `mesa_ibfk_1` FOREIGN KEY (`idSede`) REFERENCES `sede` (`idSede`) ON DELETE CASCADE;
+
+--
+-- Filtros para la tabla `pago`
+--
+ALTER TABLE `pago`
+  ADD CONSTRAINT `pago_ibfk_1` FOREIGN KEY (`idPedido`) REFERENCES `pedido` (`idPedido`) ON DELETE CASCADE;
+
+--
+-- Filtros para la tabla `pedido`
+--
+ALTER TABLE `pedido`
+  ADD CONSTRAINT `fk_pedido_usuario_central` FOREIGN KEY (`idUsuario`) REFERENCES `usuario` (`idUsuario`) ON DELETE CASCADE,
+  ADD CONSTRAINT `pedido_ibfk_2` FOREIGN KEY (`idSede`) REFERENCES `sede` (`idSede`) ON DELETE CASCADE,
+  ADD CONSTRAINT `pedido_ibfk_3` FOREIGN KEY (`idMesa`) REFERENCES `mesa` (`idMesa`) ON DELETE SET NULL;
+
+--
+-- Filtros para la tabla `pedido_personalizacion`
+--
+ALTER TABLE `pedido_personalizacion`
+  ADD CONSTRAINT `pedido_personalizacion_ibfk_1` FOREIGN KEY (`idPedido`) REFERENCES `pedido` (`idPedido`) ON DELETE CASCADE,
+  ADD CONSTRAINT `pedido_personalizacion_ibfk_2` FOREIGN KEY (`idProducto`) REFERENCES `producto` (`idProducto`) ON DELETE CASCADE,
+  ADD CONSTRAINT `pedido_personalizacion_ibfk_3` FOREIGN KEY (`idPersonalizacion`) REFERENCES `personalizacionproducto` (`idPersonalizacion`) ON DELETE CASCADE;
+
+--
+-- Filtros para la tabla `pedido_producto`
+--
+ALTER TABLE `pedido_producto`
+  ADD CONSTRAINT `pedido_producto_ibfk_1` FOREIGN KEY (`idPedido`) REFERENCES `pedido` (`idPedido`) ON DELETE CASCADE,
+  ADD CONSTRAINT `pedido_producto_ibfk_2` FOREIGN KEY (`idProducto`) REFERENCES `producto` (`idProducto`) ON DELETE CASCADE;
+
+--
+-- Filtros para la tabla `producto`
+--
+ALTER TABLE `producto`
+  ADD CONSTRAINT `producto_ibfk_1` FOREIGN KEY (`idMenu`) REFERENCES `menu` (`idMenu`) ON DELETE CASCADE,
+  ADD CONSTRAINT `producto_ibfk_2` FOREIGN KEY (`idCategoria`) REFERENCES `categoria` (`id`);
+
+--
+-- Filtros para la tabla `receta`
+--
+ALTER TABLE `receta`
+  ADD CONSTRAINT `receta_ibfk_1` FOREIGN KEY (`idProducto`) REFERENCES `producto` (`idProducto`) ON DELETE CASCADE,
+  ADD CONSTRAINT `receta_ibfk_2` FOREIGN KEY (`idInsumo`) REFERENCES `insumo` (`idInsumo`) ON DELETE CASCADE;
+COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;

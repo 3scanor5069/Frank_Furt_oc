@@ -5,7 +5,7 @@
 // Componente completo con modal de personalización
 // ========================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './ManualSale.css';
@@ -303,7 +303,8 @@ const ManualSale = () => {
 
       if (response.ok) {
         toast.success(
-          `✅ Pedido #${result.data.idPedido} registrado - Total: $${result.data.total.toLocaleString()}`
+          `✅ Pedido #${result.data.idPedido} registrado - Total: $${result.data.total.toLocaleString()}`,
+          { autoClose: 5000 }
         );
         // Limpiar
         setCarrito([]);

@@ -525,12 +525,196 @@ exports.logoutUser = async (req, res) => {
 };
 
 // ===================================================================
-// 9. OBTENER PERFIL
+// 9. OBTENER PERFIL (PROTEGIDO)
 // ===================================================================
-exports.getProfile = (req, res) => {
-    res.json({
-        success: true,
-        message: 'Perfil del usuario',
-        user: req.user
-    });
+exports.getProfile = async (req, res) => {
+    try {
+        // req.user viene del middleware de autenticación
+        const userId = req.user.id;
+
+        const [rows] = await pool.query(
+            `SELECT 
+                idUsuario, 
+                nombre, 
+                correo, 
+                telefono, 
+                direccion, 
+                rol,
+                fecha_registro,
+                ultimo_acceso,
+                activo
+            FROM usuario 
+            WHERE idUsuario = ?`,
+            [userId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Usuario no encontrado'
+            });
+        }
+
+        const user = rows[0];
+        
+        // Parsear nombre completo
+        const nameParts = user.nombre ? user.nombre.split(' ') : ['', ''];
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        res.status(200).json({
+            success: true,
+            user: {
+                id: user.idUsuario,
+                firstName,
+                lastName,
+                nombre: user.nombre,
+                correo: user.correo,
+                telefono: user.telefono || '',
+                direccion: user.direccion || '',
+                rol: user.rol,
+                fecha_registro: user.fecha_registro,
+                ultimo_acceso: user.ultimo_acceso,
+                activo: user.activo,
+                avatar: (firstName.charAt(0) + lastName.charAt(0)).toUpperCase()
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error al obtener el perfil:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener el perfil',
+            error: error.message
+        });
+    }
+};
+
+// ===================================================================
+// 10. ACTUALIZAR PERFIL (PROTEGIDO) - Solo información sensible
+// ===================================================================
+exports.updateProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { telefono, direccion } = req.body;
+
+        // Validación básica
+        if (telefono && telefono.trim().length > 0) {
+            // Validar formato de teléfono (números, espacios, guiones, paréntesis, +)
+            const phoneRegex = /^[\d\s\-\+\(\)]+$/;
+            if (!phoneRegex.test(telefono.trim())) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'El formato del teléfono no es válido'
+                });
+            }
+        }
+
+        if (direccion && direccion.trim().length > 200) {
+            return res.status(400).json({
+                success: false,
+                message: 'La dirección es demasiado larga (máximo 200 caracteres)'
+            });
+        }
+
+        // Actualizar solo campos permitidos
+        const sql = `
+            UPDATE usuario 
+            SET telefono = ?, direccion = ?
+            WHERE idUsuario = ?
+        `;
+
+        await pool.query(sql, [
+            telefono ? telefono.trim() : null,
+            direccion ? direccion.trim() : null,
+            userId
+        ]);
+
+        // Obtener datos actualizados
+        const [rows] = await pool.query(
+            'SELECT telefono, direccion FROM usuario WHERE idUsuario = ?',
+            [userId]
+        );
+
+        res.status(200).json({
+            success: true,
+            message: 'Perfil actualizado exitosamente',
+            data: {
+                telefono: rows[0].telefono,
+                direccion: rows[0].direccion
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error al actualizar el perfil:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al actualizar el perfil',
+            error: error.message
+        });
+    }
+};
+
+// ===================================================================
+// 11. ELIMINAR CUENTA PROPIA (PROTEGIDO) - Con verificación de contraseña
+// ===================================================================
+exports.deleteAccount = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { password } = req.body;
+
+        // Validar que se proporcionó la contraseña
+        if (!password || !password.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Debe proporcionar su contraseña para confirmar la eliminación'
+            });
+        }
+
+        // Obtener datos del usuario incluyendo password
+        const [rows] = await pool.query(
+            'SELECT idUsuario, nombre, correo, password FROM usuario WHERE idUsuario = ?',
+            [userId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Usuario no encontrado'
+            });
+        }
+
+        const user = rows[0];
+
+        // Verificar contraseña
+        const passwordMatch = await bcrypt.compare(password, user.password);
+        
+        if (!passwordMatch) {
+            return res.status(401).json({
+                success: false,
+                message: 'Contraseña incorrecta. No se puede eliminar la cuenta'
+            });
+        }
+
+        // Eliminar el usuario
+        await pool.query('DELETE FROM usuario WHERE idUsuario = ?', [userId]);
+
+        res.status(200).json({
+            success: true,
+            message: 'Cuenta eliminada exitosamente. Lamentamos verte partir.'
+        });
+    } catch (error) {
+        console.error('❌ Error al eliminar la cuenta:', error);
+        
+        if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+            return res.status(409).json({
+                success: false,
+                message: 'No se puede eliminar la cuenta porque tiene registros asociados. Contacte al administrador.'
+            });
+        }
+
+        res.status(500).json({
+            success: false,
+            message: 'Error al eliminar la cuenta',
+            error: error.message
+        });
+    }
 };

@@ -16,11 +16,21 @@ router.post('/login', userController.loginUser);
 // PRUEBA
 router.get('/prueba', (req, res) => res.send('OK prueba'));
 
-// RUTA PROTEGIDA
-router.get('/profile', authMiddleware, userController.getProfile);
 
 // JWT
 router.get('/verify', userController.verifyToken);
 router.post('/logout', userController.logoutUser);
+
+// PERFIL DE USUARIO - RUTAS PROTEGIDAS
+// 
+// Obtener perfil del usuario autenticado
+router.get('/profile', authMiddleware, userController.getProfile);
+
+// Actualizar información del perfil (teléfono, dirección)
+router.put('/profile/update', authMiddleware, userController.updateProfile);
+
+// Eliminar cuenta propia (requiere contraseña)
+router.delete('/profile/delete', authMiddleware, userController.deleteAccount);
+
 
 module.exports = router;

@@ -24,7 +24,6 @@ import RegistroOrden from './pages/RegistroOrden';
 
 // Components
 import Ubications from './components/Ubications';
-import EditarPerfil from './components/Editarperfil';
 import DashboardBar from './components/DashboardBar';
 
 // Admin
@@ -68,7 +67,6 @@ function App() {
             
             {/* Rutas de Usuario Autenticado */}
             <Route path="/MiPerfil" element={<MiPerfil />} />
-            <Route path="/EditarPerfil" element={<EditarPerfil />} />
             
             {/* Rutas de Mesas */}
             <Route path="/SeleccionMesas" element={<SeleccionMesas />} />
