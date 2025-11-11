@@ -3,6 +3,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { Users, ShoppingCart, DollarSign, TrendingUp, Menu, X, Home, Package, FileText, Settings, Bell, UtensilsCrossed, History, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
+import HeaderDashboard from '../components/HeaderDashboard';
 import 'react-toastify/dist/ReactToastify.css';
 import './dashboard.css';
 
@@ -226,12 +227,11 @@ const Dashboard = () => {
   const menuItems = useMemo(() => [
     { icon: Home, label: 'Dashboard', active: true, path: '/dashboard' },
     { icon: Users, label: 'Usuarios', path: '/UsersCrud' },
-    { icon: ShoppingCart, label: 'Pedidos', path: '/ManualSale' },
+    { icon: ShoppingCart, label: 'Pedidos', path: '/OrderManagementPage' },
     { icon: UtensilsCrossed, label: 'Menú', path: '/MenuCrud' },
     { icon: Package, label: 'Inventario', path: '/InventoryCrud' },
-    { icon: History, label: 'Historial de inventario', path: '/InventoryHistory' },
     { icon: FileText, label: 'Reportes', path: '/reports' },
-    { icon: Settings, label: 'Configuración', path: '/settings' }
+    
   ], []);
 
   // Toggle sidebar
@@ -290,34 +290,7 @@ const Dashboard = () => {
       {/* Main Content */}
       <div className="main-content-dash">
         {/* Header */}
-        <header className="header-dash">
-          <div className="header-left-dash">
-            <button 
-              className="menu-button"
-              onClick={toggleSidebar}
-              title="Toggle menu"
-            >
-              {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-            <h1 className="title">Dashboard</h1>
-          </div>
-          
-          <div className="header-right-dash">
-            <button 
-              className="refresh-button" 
-              onClick={handleRefresh} 
-              title="Actualizar datos"
-            >
-              <RefreshCw size={20} />
-              <span>Actualizar</span>
-            </button>
-            <Bell size={24} className="notification-icon" />
-            <div className="user-info" title={currentUser.fullName || currentUser.name}>
-              <span className="user-name">{currentUser.name}</span>
-              <div className="user-avatar">{currentUser.avatar}</div>
-            </div>
-          </div>
-        </header>
+        <HeaderDashboard/>
 
         {/* Error Message */}
         {error && (

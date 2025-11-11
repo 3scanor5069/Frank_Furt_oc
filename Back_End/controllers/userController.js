@@ -10,6 +10,7 @@ function generateToken(user) {
     return jwt.sign(
         { 
             id: user.idUsuario, 
+            nombre: user.nombre,
             correo: user.correo, 
             rol: user.rol 
         },

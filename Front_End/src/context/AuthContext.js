@@ -1,4 +1,4 @@
-// src/context/AuthContext.js
+// src/context/AuthContext.jsx - VERSIÓN CORREGIDA
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { jwtDecode } from 'jwt-decode';
 
@@ -21,23 +21,30 @@ export const AuthProvider = ({ children }) => {
   const checkAuth = () => {
     try {
       const token = localStorage.getItem('authToken');
+      const userData = localStorage.getItem('userData');
       
-      if (token) {
-        // Decodificar el token para obtener los datos
+      if (token && userData) {
+        // Decodificar el token para verificar expiración
         const decoded = jwtDecode(token);
         
         // Verificar si el token no ha expirado
         if (decoded.exp * 1000 > Date.now()) {
+          // Usar los datos guardados en localStorage
+          const parsedUser = JSON.parse(userData);
           setUser({
-            id: decoded.id,
-            nombre: decoded.nombre,
-            rol: decoded.rol
+            id: parsedUser.id,
+            nombre: parsedUser.nombre,
+            correo: parsedUser.correo,
+            rol: parsedUser.rol
           });
           setIsAuthenticated(true);
         } else {
           // Token expirado, limpiar
           logout();
         }
+      } else {
+        // No hay token o userData
+        logout();
       }
     } catch (error) {
       console.error('Error al verificar autenticación:', error);
@@ -47,23 +54,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = (token) => {
+  const login = (token, userData) => {
     try {
-      // Guardar token
+      // Guardar token y datos del usuario
       localStorage.setItem('authToken', token);
+      localStorage.setItem('userData', JSON.stringify(userData));
       
-      // Decodificar y establecer usuario
-      const decoded = jwtDecode(token);
+      // Establecer usuario en el estado
       setUser({
-        id: decoded.id,
-        nombreUsuario: decoded.nombre,
-        rol: decoded.rol
+        id: userData.id,
+        nombre: userData.nombre,
+        correo: userData.correo,
+        rol: userData.rol
       });
       setIsAuthenticated(true);
       
+      console.log('✅ Login exitoso:', userData);
       return true;
     } catch (error) {
-      console.error('Error en login:', error);
+      console.error('❌ Error en login:', error);
       return false;
     }
   };

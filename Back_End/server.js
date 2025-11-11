@@ -9,7 +9,9 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
 const inventoryHistoryRoutes = require('./routes/inventoryHistoryRoutes');
 const ventaRoutes = require('./routes/ventaRoutes');
-const manualSaleRoutes = require('./routes/manualSaleRoutes'); // << NUEVA RUTA
+const manualSaleRoutes = require('./routes/manualSaleRoutes'); 
+const userProfileRoutes = require('./routes/userProfileRoutes');
+const orderRoutes = require('./routes/orderRoutes');
 
 const app = express();
 
@@ -25,8 +27,10 @@ app.use('/api/menu', menuRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/inventoryHistory', inventoryHistoryRoutes);
-app.use('/api/venta', ventaRoutes);                    // <- Ruta original (cambié el path)
-app.use('/api/manualSale', manualSaleRoutes);          // <- Nueva ruta con mesas
+app.use('/api/venta', ventaRoutes);                    
+app.use('/api/manualSale', manualSaleRoutes);  
+app.use('/api/users', userProfileRoutes);      
+app.use('/api', orderRoutes);
 
 // Ruta de prueba principal
 app.get('/', (req, res) => {

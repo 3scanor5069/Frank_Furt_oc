@@ -5,6 +5,12 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 
+// ============================================
+// IMPORTAR TOASTIFY PARA MI PERFIL
+// ============================================
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 // Pages
 import PaginaPrincipal from './pages/PaginaPrincipal';
 import Login from './pages/Login';
@@ -33,6 +39,8 @@ import UsersCrud from './Administrador/UsersCrud';
 import InventoryCrud from './Administrador/InventoryCrud';
 import ManualSale from './Administrador/ManualSale';
 import InventoryHistory from './Administrador/InventoryHistory';
+import OrderManagementPage from './Administrador/OrderManagementPage';
+
 
 function App() {
   return (
@@ -48,6 +56,7 @@ function App() {
             <Route path="/ManualSale" element={<ManualSale />} />
             <Route path="/InventoryHistory" element={<InventoryHistory />} />
             <Route path="/DashboardBar" element={<DashboardBar />} />
+            <Route path="/OrderManagementPage" element={<OrderManagementPage />} />
             
             {/* Rutas Públicas */}
             <Route path="/p" element={<PaginaPrincipal />} />
@@ -72,6 +81,22 @@ function App() {
             <Route path="/SeleccionMesas" element={<SeleccionMesas />} />
             <Route path="/RegistroOrden" element={<RegistroOrden />} />
           </Routes>
+
+          {/* ============================================
+              TOAST CONTAINER - REQUERIDO PARA MI PERFIL
+              ============================================ */}
+          <ToastContainer
+            position="top-right"
+            autoClose={3000}
+            hideProgressBar={false}
+            newestOnTop
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            theme="light"
+          />
         </Router>
       </CartProvider>
     </AuthProvider>

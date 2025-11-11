@@ -1,490 +1,550 @@
-/* MiPerfil.css - Estilos para Frank Furt Restaurant */
+/* MiPerfil.css - Estilos únicos con prefijo mp- para evitar conflictos */
 
-/* Variables de colores del branding */
+/* ============================================
+   VARIABLES CSS
+   ============================================ */
 :root {
-  --gold-primary: #D4AF37;
-  --gold-secondary: #B8941F;
-  --gold-light: #F5E6A8;
-  --burgundy-primary: #8B0000;
-  --burgundy-secondary: #A0001E;
-  --burgundy-light: #D4838A;
-  --white: #FFFFFF;
-  --gray-light: #F8F9FA;
-  --gray-medium: #E9ECEF;
-  --gray-dark: #6C757D;
-  --text-dark: #212529;
-  --text-light: #6C757D;
-  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.08);
-  --shadow-medium: 0 8px 32px rgba(0, 0, 0, 0.12);
-  --shadow-strong: 0 12px 48px rgba(0, 0, 0, 0.15);
-  --border-radius: 12px;
-  --border-radius-small: 8px;
-  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-fast: all 0.2s ease;
+  --mp-primary-color: #800020;
+  --mp-primary-hover: #5d0015;
+  --mp-secondary-color: #f8f9fa;
+  --mp-danger-color: #dc3545;
+  --mp-danger-hover: #c82333;
+  --mp-success-color: #28a745;
+  --mp-warning-color: #ffc107;
+  --mp-info-color: #17a2b8;
+  
+  --mp-text-primary: #2b0f14;
+  --mp-text-secondary: #6c757d;
+  --mp-text-light: #adb5bd;
+  
+  --mp-border-color: #dee2e6;
+  --mp-border-radius: 12px;
+  --mp-border-radius-sm: 8px;
+  
+  --mp-shadow-sm: 0 2px 4px rgba(0,0,0,0.08);
+  --mp-shadow-md: 0 4px 8px rgba(0,0,0,0.12);
+  --mp-shadow-lg: 0 8px 24px rgba(128, 0, 32, 0.15);
+  
+  --mp-transition: all 0.3s ease;
 }
 
-/* Reset y estilos base */
-* {
-  box-sizing: border-box;
-}
-
-.mi-perfil-container {
-  min-height: 100vh;
-  background: linear-gradient(135deg, var(--gray-light) 0%, var(--white) 100%);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
-
-.container {
-  max-width: 1200px;
+/* ============================================
+   CONTENEDOR PRINCIPAL
+   ============================================ */
+.mp-container {
+  max-width: 900px;
   margin: 0 auto;
-  padding: 0 20px;
-}
-
-/* Header de la página */
-.profile-header {
-  background: linear-gradient(135deg, var(--burgundy-primary) 0%, var(--burgundy-secondary) 100%);
-  color: var(--white);
-  padding: 2rem 0;
-  position: relative;
-  overflow: hidden;
-}
-
-.profile-header::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 300px;
-  height: 100%;
-  background: linear-gradient(45deg, var(--gold-primary), var(--gold-secondary));
-  opacity: 0.1;
-  transform: skew(-15deg);
-}
-
-.header-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 2rem;
-  position: relative;
-  z-index: 2;
-}
-
-.back-button {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  color: var(--white);
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--border-radius-small);
-  cursor: pointer;
-  transition: var(--transition-smooth);
-  backdrop-filter: blur(10px);
-  font-weight: 500;
-}
-
-.back-button:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-}
-
-.header-title {
-  flex: 1;
-  text-align: center;
-}
-
-.header-title h1 {
-  margin: 0;
-  font-size: 2.5rem;
-  font-weight: 700;
-  background: linear-gradient(45deg, var(--white), var(--gold-light));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.header-title p {
-  margin: 0.5rem 0 0;
-  opacity: 0.9;
-  font-size: 1.1rem;
-}
-
-.user-welcome {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.user-avatar-header {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: var(--gold-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: var(--burgundy-primary);
-  border: 3px solid rgba(255, 255, 255, 0.3);
-  overflow: hidden;
-}
-
-.user-avatar-header img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.welcome-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.greeting {
-  font-size: 0.9rem;
-  opacity: 0.8;
-}
-
-.username {
-  font-size: 1.2rem;
-  font-weight: 600;
-}
-
-/* Contenido principal */
-.profile-main {
-  padding: 3rem 0;
-}
-
-.profile-layout {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 3rem;
-  align-items: start;
-}
-
-/* Sidebar */
-.profile-sidebar {
-  background: var(--white);
-  border-radius: var(--border-radius);
-  padding: 1.5rem;
-  box-shadow: var(--shadow-soft);
-  position: sticky;
-  top: 2rem;
-}
-
-.profile-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.nav-tab {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  width: 100%;
-  padding: 1rem 1.5rem;
-  background: none;
-  border: none;
-  border-radius: var(--border-radius-small);
-  cursor: pointer;
-  transition: var(--transition-smooth);
-  font-size: 1rem;
-  font-weight: 500;
-  color: var(--text-light);
-  text-align: left;
-}
-
-.nav-tab:hover {
-  background: var(--gray-light);
-  color: var(--burgundy-primary);
-  transform: translateX(4px);
-}
-
-.nav-tab.active {
-  background: linear-gradient(135deg, var(--burgundy-primary), var(--burgundy-secondary));
-  color: var(--white);
-  box-shadow: var(--shadow-medium);
-}
-
-.nav-tab.active:hover {
-  transform: translateX(0) translateY(-2px);
-}
-
-/* Contenido principal */
-.profile-content {
-  background: var(--white);
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow-soft);
-  overflow: hidden;
-}
-
-.tab-content {
   padding: 2rem;
+  min-height: 100vh;
+  background: var(--mp-secondary-color);
 }
 
-.content-card {
-  text-align: center;
-}
-
-.content-card h2 {
-  margin: 0 0 1rem;
-  color: var(--burgundy-primary);
-  font-size: 1.8rem;
-  font-weight: 600;
-}
-
-.content-card p {
-  color: var(--text-light);
-  font-size: 1.1rem;
+/* ============================================
+   HEADER DEL PERFIL
+   ============================================ */
+.mp-header {
   margin-bottom: 2rem;
 }
 
-.feature-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  padding: 3rem 2rem;
-  background: var(--gray-light);
-  border-radius: var(--border-radius);
-  color: var(--text-light);
+.mp-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--mp-text-primary);
+  margin-bottom: 0.5rem;
 }
 
-/* Loading states */
-.profile-loading {
+.mp-header p {
+  font-size: 1rem;
+  color: var(--mp-text-secondary);
+}
+
+/* ============================================
+   CARDS DEL PERFIL
+   ============================================ */
+.mp-profile-card {
+  background: white;
+  border-radius: var(--mp-border-radius);
+  box-shadow: var(--mp-shadow-sm);
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  transition: var(--mp-transition);
+}
+
+.mp-profile-card:hover {
+  box-shadow: var(--mp-shadow-md);
+}
+
+/* Card de Peligro (Eliminar Cuenta) */
+.mp-danger-card {
+  border: 2px solid var(--mp-danger-color);
+}
+
+.mp-danger-card .mp-card-header {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+}
+
+/* ============================================
+   HEADER DE CARD
+   ============================================ */
+.mp-card-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--mp-border-color);
+  background: linear-gradient(135deg, var(--mp-primary-color) 0%, var(--mp-primary-hover) 100%);
+}
+
+.mp-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: white;
+}
+
+.mp-card-title h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ============================================
+   BODY DE CARD
+   ============================================ */
+.mp-card-body {
+  padding: 1.5rem;
+}
+
+/* ============================================
+   FORMULARIOS
+   ============================================ */
+.mp-form-group {
+  margin-bottom: 1.5rem;
+}
+
+.mp-form-group:last-child {
+  margin-bottom: 0;
+}
+
+.mp-form-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  font-size: 0.95rem;
+  color: var(--mp-text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.mp-form-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border: 2px solid var(--mp-border-color);
+  border-radius: var(--mp-border-radius-sm);
+  transition: var(--mp-transition);
+  font-family: inherit;
+  background: white;
+}
+
+.mp-form-input:focus {
+  outline: none;
+  border-color: var(--mp-primary-color);
+  box-shadow: 0 0 0 3px rgba(128, 0, 32, 0.1);
+}
+
+.mp-form-input::placeholder {
+  color: var(--mp-text-light);
+}
+
+/* Input de Solo Lectura */
+.mp-form-input.mp-readonly {
+  background: var(--mp-secondary-color);
+  color: var(--mp-text-secondary);
+  cursor: not-allowed;
+  border-color: var(--mp-border-color);
+}
+
+.mp-form-input.mp-readonly:focus {
+  border-color: var(--mp-border-color);
+  box-shadow: none;
+}
+
+/* ============================================
+   INPUTS DE CONTRASEÑA CON TOGGLE
+   ============================================ */
+.mp-password-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.mp-password-input-wrapper .mp-form-input {
+  padding-right: 3rem;
+}
+
+.mp-password-toggle-btn {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--mp-text-secondary);
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--mp-transition);
+  border-radius: 4px;
+}
+
+.mp-password-toggle-btn:hover {
+  color: var(--mp-primary-color);
+  background: rgba(128, 0, 32, 0.1);
+}
+
+/* ============================================
+   HINTS Y MENSAJES DE AYUDA
+   ============================================ */
+.mp-form-hint {
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 0.375rem;
+  color: var(--mp-text-secondary);
+}
+
+.mp-form-hint.mp-error {
+  color: var(--mp-danger-color);
+  font-weight: 500;
+}
+
+/* ============================================
+   ACCIONES DE CARD
+   ============================================ */
+.mp-card-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--mp-border-color);
+}
+
+/* ============================================
+   BOTONES
+   ============================================ */
+.mp-container button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--mp-border-radius-sm);
+  font-weight: 500;
+  transition: var(--mp-transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+}
+
+.mp-container button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Botón Primario */
+.mp-btn-primary {
+  background: linear-gradient(135deg, var(--mp-primary-color) 0%, var(--mp-primary-hover) 100%);
+  color: white;
+}
+
+.mp-btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--mp-shadow-md);
+}
+
+/* Botón Secundario */
+.mp-btn-secondary {
+  background: var(--mp-secondary-color);
+  color: var(--mp-text-primary);
+  border: 2px solid var(--mp-border-color);
+}
+
+.mp-btn-secondary:hover:not(:disabled) {
+  background: #e9ecef;
+  border-color: var(--mp-text-secondary);
+}
+
+/* Botón de Peligro */
+.mp-btn-danger {
+  background: linear-gradient(135deg, var(--mp-danger-color) 0%, var(--mp-danger-hover) 100%);
+  color: white;
+}
+
+.mp-btn-danger:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--mp-shadow-md);
+}
+
+/* Spinner en Botones */
+.mp-btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: mp-spin 0.6s linear infinite;
+}
+
+@keyframes mp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================
+   MENSAJES DE ADVERTENCIA
+   ============================================ */
+.mp-danger-warning {
+  background: #fff3cd;
+  border-left: 4px solid var(--mp-warning-color);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: var(--mp-border-radius-sm);
+  color: #856404;
+  font-size: 0.95rem;
+}
+
+/* ============================================
+   MODAL
+   ============================================ */
+.mp-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+  backdrop-filter: blur(4px);
+  animation: mp-fadeIn 0.3s ease;
+}
+
+@keyframes mp-fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.mp-modal-content {
+  background: white;
+  border-radius: var(--mp-border-radius);
+  max-width: 500px;
+  width: 100%;
+  padding: 2rem;
+  box-shadow: var(--mp-shadow-lg);
+  position: relative;
+  animation: mp-slideUp 0.3s ease;
+}
+
+@keyframes mp-slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Botón de Cerrar Modal */
+.mp-modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: var(--mp-secondary-color);
+  color: var(--mp-text-secondary);
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--mp-transition);
+  padding: 0;
+}
+
+.mp-modal-close:hover {
+  background: var(--mp-danger-color);
+  color: white;
+  transform: rotate(90deg);
+}
+
+/* Ícono del Modal */
+.mp-modal-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.mp-modal-icon.mp-danger {
+  background: rgba(220, 53, 69, 0.1);
+  color: var(--mp-danger-color);
+}
+
+/* Título del Modal */
+.mp-modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--mp-text-primary);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+/* Descripción del Modal */
+.mp-modal-description {
+  font-size: 1rem;
+  color: var(--mp-text-secondary);
+  text-align: center;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.mp-modal-description strong {
+  color: var(--mp-danger-color);
+  font-weight: 600;
+}
+
+/* Formulario del Modal */
+.mp-modal-form {
+  margin-bottom: 1.5rem;
+}
+
+/* Acciones del Modal */
+.mp-modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.mp-modal-actions button {
+  flex: 1;
+  justify-content: center;
+}
+
+/* ============================================
+   ESTADO DE CARGA
+   ============================================ */
+.mp-loading-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  gap: 1rem;
+  padding: 4rem 2rem;
+  min-height: 60vh;
 }
 
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid var(--gray-medium);
-  border-top: 4px solid var(--gold-primary);
+.mp-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--mp-border-color);
+  border-top-color: var(--mp-primary-color);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: mp-spin 0.8s linear infinite;
+  margin-bottom: 1rem;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+.mp-loading-state p {
+  font-size: 1rem;
+  color: var(--mp-text-secondary);
 }
 
-/* Responsive Design */
-@media (max-width: 1024px) {
-  .profile-layout {
-    grid-template-columns: 240px 1fr;
-    gap: 2rem;
-  }
-  
-  .header-title h1 {
-    font-size: 2rem;
-  }
-}
-
+/* ============================================
+   RESPONSIVE
+   ============================================ */
 @media (max-width: 768px) {
-  .container {
-    padding: 0 15px;
+  .mp-container {
+    padding: 1rem;
   }
-  
-  .profile-header {
-    padding: 1.5rem 0;
+
+  .mp-header h1 {
+    font-size: 1.5rem;
   }
-  
-  .header-content {
+
+  .mp-card-header {
+    padding: 1rem;
+  }
+
+  .mp-card-body {
+    padding: 1rem;
+  }
+
+  .mp-card-title h2 {
+    font-size: 1.1rem;
+  }
+
+  .mp-card-actions {
     flex-direction: column;
-    gap: 1rem;
-    text-align: center;
   }
-  
-  .header-title h1 {
-    font-size: 1.8rem;
+
+  .mp-card-actions button {
+    width: 100%;
+    justify-content: center;
   }
-  
-  .header-title p {
-    font-size: 1rem;
-  }
-  
-  .profile-main {
-    padding: 2rem 0;
-  }
-  
-  .profile-layout {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-  
-  .profile-sidebar {
-    position: static;
-    order: 2;
-  }
-  
-  .profile-nav {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 0.75rem;
-  }
-  
-  .nav-tab {
-    flex-direction: column;
-    padding: 1rem 0.5rem;
-    text-align: center;
-    gap: 0.5rem;
-  }
-  
-  .nav-tab span {
-    font-size: 0.9rem;
-  }
-  
-  .tab-content {
+
+  .mp-modal-content {
     padding: 1.5rem;
+  }
+
+  .mp-modal-actions {
+    flex-direction: column;
+  }
+
+  .mp-modal-actions button {
+    width: 100%;
   }
 }
 
 @media (max-width: 480px) {
-  .container {
-    padding: 0 10px;
+  .mp-container {
+    padding: 0.75rem;
   }
-  
-  .back-button {
-    padding: 0.5rem 1rem;
+
+  .mp-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .mp-header h1 {
+    font-size: 1.25rem;
+  }
+
+  .mp-header p {
     font-size: 0.9rem;
   }
-  
-  .header-title h1 {
-    font-size: 1.5rem;
-  }
-  
-  .user-avatar-header {
-    width: 50px;
-    height: 50px;
-    font-size: 1.2rem;
-  }
-  
-  .username {
-    font-size: 1rem;
-  }
-  
-  .greeting {
-    font-size: 0.8rem;
-  }
-  
-  .profile-nav {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .nav-tab {
-    padding: 0.75rem 0.5rem;
-  }
-  
-  .tab-content {
-    padding: 1rem;
-  }
-  
-  .content-card h2 {
-    font-size: 1.5rem;
-  }
-  
-  .feature-placeholder {
-    padding: 2rem 1rem;
-  }
-}
 
-/* Animaciones adicionales */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
+  .mp-profile-card {
+    margin-bottom: 1rem;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+
+  .mp-form-input {
+    font-size: 0.95rem;
+    padding: 0.65rem 0.875rem;
   }
-}
 
-.profile-content {
-  animation: fadeIn 0.5s ease-out;
-}
-
-.nav-tab {
-  position: relative;
-  overflow: hidden;
-}
-
-.nav-tab::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: var(--transition-smooth);
-}
-
-.nav-tab:hover::before {
-  left: 100%;
-}
-
-/* Efectos de hover adicionales */
-.back-button {
-  position: relative;
-  overflow: hidden;
-}
-
-.back-button::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  transition: var(--transition-smooth);
-  transform: translate(-50%, -50%);
-}
-
-.back-button:hover::before {
-  width: 300px;
-  height: 300px;
-}
-
-/* Mejoras para accesibilidad */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-  
-  .loading-spinner {
-    animation: none;
-  }
-}
-
-/* Focus states para accesibilidad */
-.back-button:focus,
-.nav-tab:focus {
-  outline: 2px solid var(--gold-primary);
-  outline-offset: 2px;
-}
-
-/* Estilos para modo oscuro (opcional) */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --white: #1a1a1a;
-    --gray-light: #2d2d2d;
-    --gray-medium: #404040;
-    --text-dark: #ffffff;
-    --text-light: #b0b0b0;
+  .mp-container button {
+    font-size: 0.95rem;
+    padding: 0.65rem 1.25rem;
   }
 }

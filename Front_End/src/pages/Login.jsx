@@ -1,4 +1,4 @@
-// src/pages/Login.jsx
+// src/pages/Login.jsx - CON REDIRECCIÓN POR ROL
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Crown, Mail, Lock, AlertCircle } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
@@ -76,13 +76,27 @@ const Login = () => {
 
       const data = await response.json();
       
-      if (response.ok && data.token) {
+      if (response.ok && data.token && data.user) {
         setSuccess('¡Login exitoso! Redirigiendo...');
         
-        const loginSuccess = login(data.token);
+        // Guardar en AuthContext
+        const loginSuccess = login(data.token, data.user);
         
         if (loginSuccess) {
-          setTimeout(() => navigate('/p'), 1500);
+          console.log('✅ Usuario logueado:', data.user);
+          
+          // ✅ REDIRECCIÓN SEGÚN ROL
+          setTimeout(() => {
+            if (data.user.rol === 'administrador' ) {
+              // Admin → Dashboard administrativo
+              navigate('/');
+              console.log('🔐 Redirigiendo a Dashboard Admin');
+            } else {
+              // Cliente → Página principal
+              navigate('/p');
+              console.log('👤 Redirigiendo a Página Principal');
+            }
+          }, 1500);
         } else {
           setError('Error al procesar los datos de autenticación');
         }

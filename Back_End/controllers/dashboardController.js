@@ -1,40 +1,59 @@
 const pool = require('../config/db');
 
+// ============================================================================
+// DASHBOARD CONTROLLER - FRANK FURT
+// ============================================================================
+// Optimizado 100% para la estructura real de la base de datos
+// Base de datos: frank_furt
+// Puerto: 3006
+// Rutas: /api/dashboard/*
+// ============================================================================
+
 // ========================= MÉTRICAS PRINCIPALES =========================
+// GET /api/dashboard/metrics
+// Retorna: { totalUsers, totalOrders, dailyRevenue, weeklyOrders }
 exports.getMetrics = async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT 
-        -- Total de usuarios con rol cliente
-        (SELECT COUNT(*) FROM usuario WHERE rol = 'cliente' AND activo = 1) AS totalUsers,
+        -- Total de usuarios clientes activos
+        (SELECT COUNT(*) 
+         FROM usuario 
+         WHERE rol = 'cliente' AND activo = 1
+        ) AS totalUsers,
         
-        -- Pedidos del día (solo estado 'entregado', NO existe 'pagado_cerrado')
-        (SELECT COUNT(*) FROM pedido 
+        -- Pedidos entregados del día actual
+        (SELECT COUNT(*) 
+         FROM pedido 
          WHERE estado = 'entregado' 
          AND DATE(fecha) = CURDATE()
         ) AS totalOrders,
         
-        -- Ingresos del día (desde tabla pago)
-        (SELECT IFNULL(SUM(monto), 0) FROM pago 
+        -- Ingresos totales del día actual
+        (SELECT IFNULL(SUM(monto), 0) 
+         FROM pago 
          WHERE DATE(fecha) = CURDATE()
         ) AS dailyRevenue,
         
-        -- Pedidos de la semana actual (solo 'entregado')
-        (SELECT COUNT(*) FROM pedido 
+        -- Pedidos entregados de la semana actual (Lun-Dom)
+        (SELECT COUNT(*) 
+         FROM pedido 
          WHERE estado = 'entregado'
          AND YEARWEEK(fecha, 1) = YEARWEEK(CURDATE(), 1)
         ) AS weeklyOrders
     `);
 
     const metrics = rows[0];
+    
     res.json({
       totalUsers: parseInt(metrics.totalUsers) || 0,
       totalOrders: parseInt(metrics.totalOrders) || 0,
       dailyRevenue: parseFloat(metrics.dailyRevenue) || 0,
       weeklyOrders: parseInt(metrics.weeklyOrders) || 0
     });
+
   } catch (error) {
-    console.error('Error fetching dashboard metrics:', error);
+    console.error('❌ Error en getMetrics:', error.message);
     res.status(500).json({ 
       message: 'Error al obtener las métricas del dashboard', 
       error: error.message 
@@ -43,28 +62,32 @@ exports.getMetrics = async (req, res) => {
 };
 
 // ========================= VENTAS MENSUALES =========================
+// GET /api/dashboard/monthly-sales
+// Retorna: [{ day: '01', ventas: 15000 }, ...]
 exports.getMonthlySales = async (req, res) => {
   try {
     const sql = `
       SELECT
-          DATE_FORMAT(fecha, '%d') AS day,
-          IFNULL(SUM(monto), 0) AS ventas
+        DATE_FORMAT(fecha, '%d') AS day,
+        IFNULL(SUM(monto), 0) AS ventas
       FROM pago
-      WHERE fecha >= CURDATE() - INTERVAL 30 DAY
+      WHERE fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
       GROUP BY DATE(fecha)
-      ORDER BY DATE(fecha)
+      ORDER BY DATE(fecha) ASC
     `;
+    
     const [result] = await pool.query(sql);
     
-    // Formatear datos
+    // Formatear datos para Recharts
     const formattedData = result.map(row => ({
       day: row.day,
       ventas: parseFloat(row.ventas) || 0
     }));
     
     res.json(formattedData);
+
   } catch (error) {
-    console.error('Error fetching monthly sales:', error);
+    console.error('❌ Error en getMonthlySales:', error.message);
     res.status(500).json({ 
       message: 'Error al obtener ventas mensuales', 
       error: error.message 
@@ -73,37 +96,46 @@ exports.getMonthlySales = async (req, res) => {
 };
 
 // ========================= VENTAS SEMANALES =========================
+// GET /api/dashboard/weekly-sales
+// Retorna: [{ day: 'Lun', ventas: 4500 }, ...]
 exports.getWeeklySales = async (req, res) => {
   try {
     const sql = `
       SELECT
-          CASE
-              WHEN DAYOFWEEK(fecha) = 2 THEN 'Lun'
-              WHEN DAYOFWEEK(fecha) = 3 THEN 'Mar'
-              WHEN DAYOFWEEK(fecha) = 4 THEN 'Mié'
-              WHEN DAYOFWEEK(fecha) = 5 THEN 'Jue'
-              WHEN DAYOFWEEK(fecha) = 6 THEN 'Vie'
-              WHEN DAYOFWEEK(fecha) = 7 THEN 'Sáb'
-              WHEN DAYOFWEEK(fecha) = 1 THEN 'Dom'
-          END AS day,
-          DAYOFWEEK(fecha) AS dayNum,
-          IFNULL(SUM(monto), 0) AS ventas
+        CASE DAYOFWEEK(fecha)
+          WHEN 1 THEN 'Dom'
+          WHEN 2 THEN 'Lun'
+          WHEN 3 THEN 'Mar'
+          WHEN 4 THEN 'Mié'
+          WHEN 5 THEN 'Jue'
+          WHEN 6 THEN 'Vie'
+          WHEN 7 THEN 'Sáb'
+        END AS day,
+        DAYOFWEEK(fecha) AS dayNum,
+        IFNULL(SUM(monto), 0) AS ventas
       FROM pago
-      WHERE fecha >= CURDATE() - INTERVAL 7 DAY
-      GROUP BY DAYOFWEEK(fecha), day
-      ORDER BY dayNum
+      WHERE fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+      GROUP BY DAYOFWEEK(fecha)
+      ORDER BY 
+        -- Ordenar Lun-Dom (2,3,4,5,6,7,1)
+        CASE DAYOFWEEK(fecha)
+          WHEN 1 THEN 7  -- Dom al final
+          ELSE DAYOFWEEK(fecha) - 1
+        END
     `;
+    
     const [result] = await pool.query(sql);
     
-    // Formatear y eliminar dayNum
+    // Formatear eliminando dayNum
     const formattedData = result.map(row => ({
       day: row.day,
       ventas: parseFloat(row.ventas) || 0
     }));
     
     res.json(formattedData);
+
   } catch (error) {
-    console.error('Error fetching weekly sales:', error);
+    console.error('❌ Error en getWeeklySales:', error.message);
     res.status(500).json({ 
       message: 'Error al obtener ventas semanales', 
       error: error.message 
@@ -112,29 +144,34 @@ exports.getWeeklySales = async (req, res) => {
 };
 
 // ========================= NUEVOS USUARIOS =========================
+// GET /api/dashboard/new-users
+// Retorna: [{ semana: 'Sem 1', usuarios: 45 }, ...]
 exports.getNewUsers = async (req, res) => {
   try {
     const sql = `
       SELECT
-          WEEK(fecha_registro, 1) AS week,
-          COUNT(*) AS usuarios
+        WEEK(fecha_registro, 1) AS week,
+        COUNT(*) AS usuarios
       FROM usuario
-      WHERE fecha_registro >= CURDATE() - INTERVAL 4 WEEK 
+      WHERE fecha_registro >= DATE_SUB(CURDATE(), INTERVAL 4 WEEK)
         AND rol = 'cliente'
         AND activo = 1
-      GROUP BY week
-      ORDER BY week
+      GROUP BY WEEK(fecha_registro, 1)
+      ORDER BY week ASC
     `;
+    
     const [result] = await pool.query(sql);
     
+    // Formatear con etiquetas "Sem 1", "Sem 2", etc.
     const newUsersData = result.map((row, index) => ({
       semana: `Sem ${index + 1}`,
       usuarios: parseInt(row.usuarios) || 0
     }));
     
     res.json(newUsersData);
+
   } catch (error) {
-    console.error('Error fetching new users:', error);
+    console.error('❌ Error en getNewUsers:', error.message);
     res.status(500).json({ 
       message: 'Error al obtener nuevos usuarios', 
       error: error.message 
@@ -143,22 +180,24 @@ exports.getNewUsers = async (req, res) => {
 };
 
 // ========================= TOP PRODUCTOS =========================
+// GET /api/dashboard/top-products
+// Retorna: [{ name: 'Hamburguesa', value: 35, color: '#FF6B6B' }, ...]
 exports.getTopProducts = async (req, res) => {
   try {
-    // JOIN con pedido para filtrar por fecha (pedido_producto NO tiene campo fecha)
     const sql = `
       SELECT
-          p.nombre AS name,
-          SUM(pp.cantidad) AS value
+        p.nombre AS name,
+        SUM(pp.cantidad) AS totalVendido
       FROM pedido_producto pp
-      JOIN producto p ON pp.idProducto = p.idProducto
-      JOIN pedido ped ON pp.idPedido = ped.idPedido
-      WHERE ped.fecha >= CURDATE() - INTERVAL 30 DAY
+      INNER JOIN producto p ON pp.idProducto = p.idProducto
+      INNER JOIN pedido ped ON pp.idPedido = ped.idPedido
+      WHERE ped.fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
         AND ped.estado = 'entregado'
       GROUP BY p.idProducto, p.nombre
-      ORDER BY value DESC
+      ORDER BY totalVendido DESC
       LIMIT 5
     `;
+    
     const [result] = await pool.query(sql);
     
     // Si no hay datos, retornar array vacío
@@ -166,18 +205,25 @@ exports.getTopProducts = async (req, res) => {
       return res.json([]);
     }
     
-    const totalSales = result.reduce((acc, item) => acc + parseFloat(item.value), 0);
+    // Calcular total para porcentajes
+    const totalSales = result.reduce((acc, item) => acc + parseFloat(item.totalVendido), 0);
+    
+    // Colores predefinidos para el gráfico de pastel
     const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
     
+    // Formatear con porcentajes
     const topProducts = result.map((item, index) => ({
       name: item.name,
-      value: totalSales > 0 ? Math.round((parseFloat(item.value) / totalSales) * 100) : 0,
+      value: totalSales > 0 
+        ? Math.round((parseFloat(item.totalVendido) / totalSales) * 100) 
+        : 0,
       color: COLORS[index % COLORS.length]
     }));
     
     res.json(topProducts);
+
   } catch (error) {
-    console.error('Error fetching top products:', error);
+    console.error('❌ Error en getTopProducts:', error.message);
     res.status(500).json({ 
       message: 'Error al obtener productos más vendidos', 
       error: error.message 
@@ -186,25 +232,28 @@ exports.getTopProducts = async (req, res) => {
 };
 
 // ========================= USUARIOS RECIENTES =========================
+// GET /api/dashboard/recent-users
+// Retorna: [{ id, name, email, date, status }, ...]
 exports.getRecentUsers = async (req, res) => {
   try {
-    // Usar tabla usuario (NO existe tabla "cliente")
     const sql = `
       SELECT 
-          idUsuario AS id,
-          nombre AS name,
-          correo AS email,
-          DATE_FORMAT(fecha_registro, '%Y-%m-%d') AS date,
-          CASE WHEN activo = 1 THEN 'Activo' ELSE 'Inactivo' END AS status
+        idUsuario AS id,
+        nombre AS name,
+        correo AS email,
+        DATE_FORMAT(fecha_registro, '%Y-%m-%d') AS date,
+        CASE WHEN activo = 1 THEN 'Activo' ELSE 'Inactivo' END AS status
       FROM usuario
       WHERE rol = 'cliente'
       ORDER BY fecha_registro DESC
       LIMIT 10
     `;
+    
     const [result] = await pool.query(sql);
     res.json(result);
+
   } catch (error) {
-    console.error('Error fetching recent users:', error);
+    console.error('❌ Error en getRecentUsers:', error.message);
     res.status(500).json({ 
       message: 'Error al obtener usuarios recientes', 
       error: error.message 
@@ -212,53 +261,52 @@ exports.getRecentUsers = async (req, res) => {
   }
 };
 
-// ========================= ESTADÍSTICAS ADICIONALES =========================
+// ========================= COMPARACIONES (OPCIONAL) =========================
+// GET /api/dashboard/comparisons
+// Retorna comparaciones mes actual vs anterior, día actual vs anterior, etc.
 exports.getComparisons = async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT
-        -- Comparación de usuarios mes actual vs mes anterior
-        (
-          SELECT COUNT(*) 
-          FROM usuario 
-          WHERE rol = 'cliente' 
-            AND MONTH(fecha_registro) = MONTH(CURDATE())
-            AND YEAR(fecha_registro) = YEAR(CURDATE())
-            AND activo = 1
+        -- Usuarios: mes actual vs mes anterior
+        (SELECT COUNT(*) 
+         FROM usuario 
+         WHERE rol = 'cliente' 
+           AND MONTH(fecha_registro) = MONTH(CURDATE())
+           AND YEAR(fecha_registro) = YEAR(CURDATE())
+           AND activo = 1
         ) AS usersThisMonth,
-        (
-          SELECT COUNT(*) 
-          FROM usuario 
-          WHERE rol = 'cliente' 
-            AND MONTH(fecha_registro) = MONTH(CURDATE() - INTERVAL 1 MONTH)
-            AND YEAR(fecha_registro) = YEAR(CURDATE() - INTERVAL 1 MONTH)
-            AND activo = 1
+        
+        (SELECT COUNT(*) 
+         FROM usuario 
+         WHERE rol = 'cliente' 
+           AND MONTH(fecha_registro) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+           AND YEAR(fecha_registro) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+           AND activo = 1
         ) AS usersLastMonth,
         
-        -- Comparación de ingresos día actual vs día anterior
-        (
-          SELECT IFNULL(SUM(monto), 0)
-          FROM pago
-          WHERE DATE(fecha) = CURDATE()
+        -- Ingresos: hoy vs ayer
+        (SELECT IFNULL(SUM(monto), 0)
+         FROM pago
+         WHERE DATE(fecha) = CURDATE()
         ) AS revenueToday,
-        (
-          SELECT IFNULL(SUM(monto), 0)
-          FROM pago
-          WHERE DATE(fecha) = CURDATE() - INTERVAL 1 DAY
+        
+        (SELECT IFNULL(SUM(monto), 0)
+         FROM pago
+         WHERE DATE(fecha) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
         ) AS revenueYesterday,
         
-        -- Comparación de pedidos semana actual vs semana anterior
-        (
-          SELECT COUNT(*)
-          FROM pedido
-          WHERE YEARWEEK(fecha, 1) = YEARWEEK(CURDATE(), 1)
-            AND estado = 'entregado'
+        -- Pedidos: semana actual vs semana anterior
+        (SELECT COUNT(*)
+         FROM pedido
+         WHERE YEARWEEK(fecha, 1) = YEARWEEK(CURDATE(), 1)
+           AND estado = 'entregado'
         ) AS ordersThisWeek,
-        (
-          SELECT COUNT(*)
-          FROM pedido
-          WHERE YEARWEEK(fecha, 1) = YEARWEEK(CURDATE() - INTERVAL 1 WEEK, 1)
-            AND estado = 'entregado'
+        
+        (SELECT COUNT(*)
+         FROM pedido
+         WHERE YEARWEEK(fecha, 1) = YEARWEEK(DATE_SUB(CURDATE(), INTERVAL 1 WEEK), 1)
+           AND estado = 'entregado'
         ) AS ordersLastWeek
     `);
     
@@ -279,8 +327,8 @@ exports.getComparisons = async (req, res) => {
     
     res.json({
       users: {
-        current: data.usersThisMonth,
-        previous: data.usersLastMonth,
+        current: parseInt(data.usersThisMonth),
+        previous: parseInt(data.usersLastMonth),
         change: userChange
       },
       revenue: {
@@ -289,13 +337,14 @@ exports.getComparisons = async (req, res) => {
         change: revenueChange
       },
       orders: {
-        current: data.ordersThisWeek,
-        previous: data.ordersLastWeek,
+        current: parseInt(data.ordersThisWeek),
+        previous: parseInt(data.ordersLastWeek),
         change: orderChange
       }
     });
+
   } catch (error) {
-    console.error('Error fetching comparisons:', error);
+    console.error('❌ Error en getComparisons:', error.message);
     res.status(500).json({ 
       message: 'Error al obtener comparaciones', 
       error: error.message 
@@ -303,5 +352,18 @@ exports.getComparisons = async (req, res) => {
   }
 };
 
-console.log('✅ DashboardController FINAL - Corregido según estructura real de BD');
+// ============================================================================
+// EXPORTAR CONTROLADOR
+// ============================================================================
+
+console.log('✅ DashboardController cargado correctamente');
+console.log('📊 Endpoints disponibles:');
+console.log('   - GET /api/dashboard/metrics');
+console.log('   - GET /api/dashboard/monthly-sales');
+console.log('   - GET /api/dashboard/weekly-sales');
+console.log('   - GET /api/dashboard/new-users');
+console.log('   - GET /api/dashboard/top-products');
+console.log('   - GET /api/dashboard/recent-users');
+console.log('   - GET /api/dashboard/comparisons (opcional)');
+
 module.exports = exports;

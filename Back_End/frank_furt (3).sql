@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 04-11-2025 a las 11:30:27
+-- Tiempo de generación: 11-11-2025 a las 11:40:23
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.0.30
 
@@ -43,7 +43,8 @@ INSERT INTO `categoria` (`id`, `nombre`, `descripcion`, `activo`, `fecha_creacio
 (1, 'Hamburguesas', 'Clásicas y gourmet', 1, '2025-08-21 15:18:35'),
 (2, 'Bebidas', 'Frías y calientes', 1, '2025-08-21 15:18:35'),
 (3, 'Papas', 'Papas fritas y acompañamientos', 1, '2025-08-21 15:18:35'),
-(4, 'Postres', 'Dulces y postres', 1, '2025-08-21 15:18:35');
+(4, 'Postres', 'Dulces y postres', 1, '2025-08-21 15:18:35'),
+(6, 'Acompañamientos', 'Papas, aros, ensaladas', 1, '2025-11-11 05:16:22');
 
 -- --------------------------------------------------------
 
@@ -269,25 +270,6 @@ INSERT INTO `mesa` (`idMesa`, `numero`, `idSede`, `estado`) VALUES
 (6, 'Mesa 6', 1, 'disponible'),
 (7, 'Mesa 7', 1, 'disponible'),
 (8, 'Mesa 8', 1, 'disponible'),
-(9, 'Mesa 1', 1, 'disponible'),
-(10, 'Mesa 2', 1, 'ocupada'),
-(11, 'Mesa 3', 2, 'disponible'),
-(12, 'Mesa 1', 1, 'disponible'),
-(13, 'Mesa 2', 1, 'ocupada'),
-(14, 'Mesa 3', 2, 'disponible'),
-(15, 'Mesa 1', 1, 'disponible'),
-(16, 'Mesa 2', 1, 'ocupada'),
-(17, 'Mesa 3', 2, 'disponible'),
-(18, 'Mesa 1', 1, 'disponible'),
-(19, 'Mesa 2', 1, 'ocupada'),
-(20, 'Mesa 3', 2, 'disponible'),
-(21, '2', 1, 'disponible'),
-(22, '2', 1, 'disponible'),
-(23, '4', 1, 'disponible'),
-(24, '4', 1, 'disponible'),
-(25, '4', 1, 'disponible'),
-(26, '6', 1, 'disponible'),
-(27, '6', 1, 'disponible'),
 (28, '8', 1, 'disponible'),
 (29, '1', 1, 'disponible'),
 (30, '1', 1, 'disponible');
@@ -306,6 +288,17 @@ CREATE TABLE `pago` (
   `fecha` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Volcado de datos para la tabla `pago`
+--
+
+INSERT INTO `pago` (`idPago`, `idPedido`, `metodo`, `monto`, `fecha`) VALUES
+(2001, 2001, 'efectivo', 28000.00, '2025-11-04 04:16:13'),
+(2002, 2002, 'tarjeta', 33000.00, '2025-11-06 04:16:13'),
+(2003, 2003, 'transferencia', 25000.00, '2025-11-08 04:16:13'),
+(2004, 2004, 'efectivo', 40000.00, '2025-11-09 04:16:13'),
+(2005, 2005, 'tarjeta', 35000.00, '2025-11-10 04:16:13');
+
 -- --------------------------------------------------------
 
 --
@@ -315,7 +308,7 @@ CREATE TABLE `pago` (
 CREATE TABLE `pedido` (
   `idPedido` int(11) NOT NULL,
   `fecha` timestamp NOT NULL DEFAULT current_timestamp(),
-  `estado` enum('pendiente','en preparación','listo','entregado','cancelado') DEFAULT 'pendiente',
+  `estado` enum('pendiente','en_preparacion','entregado','pagado','cancelado') DEFAULT 'pendiente',
   `total` decimal(10,2) DEFAULT 0.00,
   `idUsuario` int(11) NOT NULL DEFAULT 1 COMMENT 'FK a usuario.idUsuario',
   `idSede` int(11) NOT NULL,
@@ -323,6 +316,17 @@ CREATE TABLE `pedido` (
   `tipo_pedido` enum('mesa','domicilio','llevar') DEFAULT 'domicilio',
   `observaciones` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `pedido`
+--
+
+INSERT INTO `pedido` (`idPedido`, `fecha`, `estado`, `total`, `idUsuario`, `idSede`, `idMesa`, `tipo_pedido`, `observaciones`) VALUES
+(2001, '2025-11-04 04:14:57', 'entregado', 28000.00, 1, 1, 1, 'domicilio', NULL),
+(2002, '2025-11-06 04:14:57', 'entregado', 33000.00, 2, 1, 2, 'domicilio', NULL),
+(2003, '2025-11-08 04:14:57', 'entregado', 25000.00, 3, 1, 3, 'domicilio', NULL),
+(2004, '2025-11-09 04:14:57', 'entregado', 40000.00, 4, 1, 1, 'domicilio', NULL),
+(2005, '2025-11-10 04:14:57', 'entregado', 35000.00, 5, 1, 2, 'domicilio', NULL);
 
 -- --------------------------------------------------------
 
@@ -396,7 +400,16 @@ INSERT INTO `producto` (`idProducto`, `nombre`, `precio`, `disponible`, `idMenu`
 (28, 'Pizza Personal', 20000.00, 1, 1, 2, 'Pizza de 4 porciones con ingredientes al gusto', NULL, '2025-10-02 19:58:49'),
 (30, 'Hamburguesa Clásica', 18000.00, 1, 1, 1, 'Carne 120g, queso, lechuga, tomate', 'hamburguesa.jpg', '2025-10-02 20:03:01'),
 (31, 'Papas Fritas', 8000.00, 1, 1, 3, 'Papas doradas y crocantes', 'papas.jpg', '2025-10-02 20:03:01'),
-(32, 'Coca-Cola 400ml', 5000.00, 1, 1, 2, 'Bebida gaseosa fría', 'cocacola.jpg', '2025-10-02 20:03:01');
+(32, 'Coca-Cola 400ml', 5000.00, 1, 1, 2, 'Bebida gaseosa fría', 'cocacola.jpg', '2025-10-02 20:03:01'),
+(34, 'Coca Cola 350ml', 3000.00, 1, 1, 2, 'Bebida gaseosa', 'cocacola.jpg', '2025-11-05 10:30:41'),
+(35, 'Hamburguesa BBQ', 18000.00, 1, 1, 1, 'Carne, salsa BBQ, cebolla caramelizada', 'hamburguesa.jpg', '2025-11-05 10:30:41'),
+(36, 'Papas Fritas', 6000.00, 1, 1, 3, 'Papas fritas medianas', 'papas.jpg', '2025-11-05 10:30:41'),
+(37, 'Brownie con Helado', 8000.00, 1, 1, 4, 'Postre dulce', 'brownie.jpg', '2025-11-05 10:30:41'),
+(38, 'Hamburguesa Clásica', 18000.00, 1, 1, 1, 'Pan artesanal, carne 120g, queso y vegetales.', 'hamburguesa.jpg', '2025-08-11 20:56:54'),
+(39, 'Hamburguesa Doble', 22000.00, 1, 1, 1, 'Doble carne y doble queso.', 'doble.jpg', '2025-08-21 20:56:54'),
+(40, 'Papas Fritas', 8000.00, 1, 1, 2, 'Papas crujientes con sal y salsas.', 'papas.jpg', '2025-08-31 20:56:54'),
+(41, 'Perro Caliente', 12000.00, 1, 1, 1, 'Salchicha americana con salsas.', 'perro.jpg', '2025-09-10 20:56:54'),
+(42, 'Gaseosa 350ml', 4000.00, 1, 1, 3, 'Bebida gaseosa 350ml.', 'gaseosa.jpg', '2025-09-20 20:56:54');
 
 -- --------------------------------------------------------
 
@@ -461,7 +474,8 @@ CREATE TABLE `sede` (
 
 INSERT INTO `sede` (`idSede`, `nombre`, `direccion`, `ciudad`, `telefono`, `activo`, `fecha_creacion`) VALUES
 (1, 'Frank Furt Centro', 'Calle 10 #15-30', 'Bogotá', '601-555-0100', 1, '2025-08-21 15:18:35'),
-(2, 'Sede Secundaria', 'Carrera 45 #20-15', '', NULL, 1, '2025-10-02 19:53:02');
+(2, 'Sede Secundaria', 'Carrera 45 #20-15', '', NULL, 1, '2025-10-02 19:53:02'),
+(3, 'Sede Principal', 'Calle 123 #45-67', '', '3001234567', 1, '2025-11-11 05:16:22');
 
 -- --------------------------------------------------------
 
@@ -493,9 +507,12 @@ INSERT INTO `usuario` (`idUsuario`, `nombre`, `correo`, `telefono`, `direccion`,
 (2, 'tarlo mendes', 'tarlo@gmail.com', '', '', '$2b$10$yXReb5fMTyByeUIzkwKcHO4T3z05.LGfSZ3LKMUWpvLcqxxm./paK', 'cliente', 1, '2025-10-14 06:26:10', NULL, NULL, NULL),
 (3, 'taniasss gutierres', 'tania@gmail.com', '', '', '$2b$10$Ub8Lj4MWiPcNtX4XFQw.Duzcq53nDdTwTdmbGFlL5cD3xm6sBattG', '', 0, '2025-10-14 06:41:16', '2025-10-20 04:06:50', NULL, NULL),
 (4, 'camilo plazas', 'cami@gmail.com', '', '', '$2b$10$Z95K/ZN2g5YMDST90L3auOOP19cIYVPmK1zhdEKvr9AhsYuDOU3JO', 'cliente', 1, '2025-10-21 04:02:09', '2025-10-21 04:04:02', NULL, NULL),
-(5, 'syrax targueryen', 'syrax@gmail.com', '', '', '$2b$10$TU5YCTNU1SYR1KVek/E0KuqPwv3/yhLIZ9VMain6sUkheAcvwdoY2', 'administrador', 1, '2025-10-21 04:08:46', '2025-11-04 06:14:15', NULL, NULL),
+(5, 'syrax targueryen', 'syrax@gmail.com', '', '', '$2b$10$TU5YCTNU1SYR1KVek/E0KuqPwv3/yhLIZ9VMain6sUkheAcvwdoY2', 'administrador', 1, '2025-10-21 04:08:46', '2025-11-11 06:40:06', NULL, NULL),
 (6, 'julian plazas', 'juli@gmail.com', '82734672437', 'calle 20', '$2b$10$8w5ONQaIXY.548E5zy07QOlkoI1fYw5xDZf.IaMACMmS31W06m.QK', 'cliente', 1, '2025-11-04 03:51:20', NULL, NULL, NULL),
-(7, 'edsson garzon', 'edssongarzon62@gmail.com', '', '', '$2b$10$Oe7qWMt66VV6XfQxrqJgy./8OtrXEuNhW6x1KElOYbVQOvozTso/W', 'cliente', 1, '2025-11-04 08:26:21', NULL, NULL, NULL);
+(7, 'edsson garzon', 'edssongarzon62@gmail.com', '', '', '$2b$10$Oe7qWMt66VV6XfQxrqJgy./8OtrXEuNhW6x1KElOYbVQOvozTso/W', 'cliente', 1, '2025-11-04 08:26:21', NULL, NULL, NULL),
+(8, 'charlie morningstar', 'charlie@gmail.com', '2873582654', 'calle H', '$2b$10$RhPVW1Wlet9e9XN7gzBLjOAwrc9X4419Te6wDtrWEJAvZL2/INM/O', 'cliente', 1, '2025-11-10 04:22:25', NULL, NULL, NULL),
+(9, 'vagi vagi', 'vagi@gmail.com', '', '', '$2b$10$x2FbCCRxr20lm.zQlbOT7.8IcQ2q6945tahRwqoCvRrjklRl2fXJK', 'cliente', 1, '2025-11-10 19:04:16', '2025-11-10 19:04:32', NULL, NULL),
+(10, 'jiseth Muñoz', 'jisethmunoz1207@gmail.com', '', '', '$2b$10$4KidYYYiCA8K991XFfhi/unI2ApDarVBOF5aMaXT2k36fhRW5tiI2', 'cliente', 1, '2025-11-11 02:06:55', '2025-11-11 02:07:12', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -506,7 +523,7 @@ INSERT INTO `usuario` (`idUsuario`, `nombre`, `correo`, `telefono`, `direccion`,
 CREATE TABLE `vista_pedidos` (
 `idPedido` int(11)
 ,`fecha` timestamp
-,`estado` enum('pendiente','en preparación','listo','entregado','cancelado')
+,`estado` enum('pendiente','en_preparacion','entregado','pagado','cancelado')
 ,`total` decimal(10,2)
 ,`cliente` varchar(100)
 ,`sede` varchar(100)
@@ -521,7 +538,7 @@ CREATE TABLE `vista_pedidos` (
 CREATE TABLE `vista_pedidos_activos_mesa` (
 `idPedido` int(11)
 ,`fecha` timestamp
-,`estado` enum('pendiente','en preparación','listo','entregado','cancelado')
+,`estado` enum('pendiente','en_preparacion','entregado','pagado','cancelado')
 ,`total` decimal(10,2)
 ,`observaciones` text
 ,`numeroMesa` varchar(20)
@@ -711,7 +728,8 @@ ALTER TABLE `pedido`
   ADD PRIMARY KEY (`idPedido`),
   ADD KEY `idSede` (`idSede`),
   ADD KEY `idMesa` (`idMesa`),
-  ADD KEY `idUsuario` (`idUsuario`);
+  ADD KEY `idUsuario` (`idUsuario`),
+  ADD KEY `idx_estado_fecha` (`estado`,`fecha`);
 
 --
 -- Indices de la tabla `pedido_personalizacion`
@@ -781,7 +799,7 @@ ALTER TABLE `usuario`
 -- AUTO_INCREMENT de la tabla `categoria`
 --
 ALTER TABLE `categoria`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT de la tabla `insumo`
@@ -799,7 +817,7 @@ ALTER TABLE `insumos_config`
 -- AUTO_INCREMENT de la tabla `inventario`
 --
 ALTER TABLE `inventario`
-  MODIFY `idInventario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `idInventario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- AUTO_INCREMENT de la tabla `inventario_general`
@@ -829,13 +847,13 @@ ALTER TABLE `mesa`
 -- AUTO_INCREMENT de la tabla `pago`
 --
 ALTER TABLE `pago`
-  MODIFY `idPago` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3024;
+  MODIFY `idPago` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3025;
 
 --
 -- AUTO_INCREMENT de la tabla `pedido`
 --
 ALTER TABLE `pedido`
-  MODIFY `idPedido` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2018;
+  MODIFY `idPedido` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2027;
 
 --
 -- AUTO_INCREMENT de la tabla `pedido_personalizacion`
@@ -853,7 +871,7 @@ ALTER TABLE `personalizacionproducto`
 -- AUTO_INCREMENT de la tabla `producto`
 --
 ALTER TABLE `producto`
-  MODIFY `idProducto` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
+  MODIFY `idProducto` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=43;
 
 --
 -- AUTO_INCREMENT de la tabla `receta`
@@ -871,13 +889,13 @@ ALTER TABLE `rol`
 -- AUTO_INCREMENT de la tabla `sede`
 --
 ALTER TABLE `sede`
-  MODIFY `idSede` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `idSede` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `usuario`
 --
 ALTER TABLE `usuario`
-  MODIFY `idUsuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `idUsuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- Restricciones para tablas volcadas

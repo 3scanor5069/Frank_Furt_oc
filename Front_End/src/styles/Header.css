@@ -1,18 +1,34 @@
-/* Header.css - Versión Minimalista y Compacta */
+/* Header.css - VERSIÓN CORREGIDA CON REDES SOCIALES */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+/* ============================================
+   VARIABLES CSS - TODAS DEFINIDAS
+   ============================================ */
 :root {
+  /* Colores principales */
   --gold: #FFD700;
+  --gold-primary: #FFD700;
+  --gold-secondary: #ffed4e;
   --burgundy: #800020;
+  --burgundy-primary: #800020;
+  --burgundy-secondary: #5d0015;
   --burgundy-dark: #5d0015;
+  
+  /* Neutros */
   --white: #ffffff;
   --gray-light: #f8f9fa;
   --gray: #6c757d;
+  --dark: #2b0f14;
+  
+  /* Sombras */
   --shadow-sm: 0 2px 4px rgba(0,0,0,0.08);
   --shadow-md: 0 4px 8px rgba(0,0,0,0.12);
   --shadow-lg: 0 8px 24px rgba(128, 0, 32, 0.15);
+  
+  /* Transiciones */
   --transition: all 0.3s ease;
+  --transition-fast: all 0.2s ease;
 }
 
 * {
@@ -35,68 +51,70 @@
 }
 
 /* ============================================
-   CONTACT BAR
+   CONTACT BAR - REDES SOCIALES
    ============================================ */
 
 .contact-bar {
   background: linear-gradient(135deg, var(--burgundy-primary) 0%, var(--burgundy-secondary) 100%);
   color: white;
-  padding: 10px 0;
+  padding: 12px 0;
   font-size: 13px;
+  border-bottom: 2px solid var(--gold);
 }
 
 .contact-bar .container {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   flex-wrap: wrap;
   gap: 20px;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 0 1.5rem;
 }
-
-
 
 .social-links {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
   flex-wrap: wrap;
-}
-
-.social-text {
-  font-weight: 500;
-  opacity: 0.95;
-  white-space: nowrap;
 }
 
 .social-links a {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   background: rgba(255, 255, 255, 0.15);
   border-radius: 50%;
   color: white;
   text-decoration: none;
   transition: var(--transition-fast);
   backdrop-filter: blur(10px);
+  border: 2px solid transparent;
 }
 
 .social-links a:hover {
   background: var(--gold-primary);
   color: var(--burgundy-primary);
-  transform: translateY(-2px) scale(1.1);
+  transform: translateY(-3px) scale(1.1);
+  border-color: var(--gold-primary);
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
 }
 
 .social-links a:focus {
   outline: 2px solid var(--gold-primary);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
+
+.social-links a svg {
+  width: 16px;
+  height: 16px;
+}
+
 /* ============================================
-   MAIN NAVIGATION - Compacto
+   MAIN NAVIGATION
    ============================================ */
 
 .main-nav {
@@ -115,43 +133,45 @@
 }
 
 /* ============================================
-   LOGO - Compacto
+   LOGO
    ============================================ */
 
 .logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   text-decoration: none;
   transition: var(--transition);
   flex-shrink: 0;
 }
 
 .logo:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 .crown-icon {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   color: var(--gold);
   transition: var(--transition);
+  filter: drop-shadow(0 2px 4px rgba(255, 215, 0, 0.3));
 }
 
 .logo:hover .crown-icon {
-  transform: rotate(-8deg) scale(1.05);
+  transform: rotate(-8deg) scale(1.1);
+  filter: drop-shadow(0 4px 8px rgba(255, 215, 0, 0.5));
 }
 
 .logo-text {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 2px;
   line-height: 1.2;
 }
 
 .brand-name {
   font-weight: 700;
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   background: linear-gradient(135deg, var(--gold) 0%, var(--burgundy) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -162,12 +182,13 @@
 .brand-tagline {
   color: var(--burgundy);
   font-weight: 500;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   opacity: 0.85;
+  letter-spacing: 0.3px;
 }
 
 /* ============================================
-   NAVIGATION MENU - Minimalista
+   NAVIGATION MENU
    ============================================ */
 
 .nav-wrapper {
@@ -226,7 +247,7 @@
 }
 
 /* ============================================
-   DROPDOWN MENU - Minimalista
+   DROPDOWN MENU
    ============================================ */
 
 .dropdown-menu {
@@ -273,7 +294,7 @@
 }
 
 /* ============================================
-   HEADER ACTIONS - Compacto
+   HEADER ACTIONS
    ============================================ */
 
 .header-actions {
@@ -309,6 +330,7 @@
 .btn-login:hover {
   background: var(--burgundy);
   color: var(--white);
+  transform: translateY(-1px);
 }
 
 .btn-register {
@@ -319,13 +341,13 @@
 }
 
 .btn-register:hover {
-  background: #ffed4e;
+  background: var(--gold-secondary);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
 
 /* ============================================
-   USER MENU - Minimalista y Compacto
+   USER MENU
    ============================================ */
 
 .user-menu-container {
@@ -390,7 +412,7 @@
 }
 
 /* ============================================
-   USER DROPDOWN MENU - Minimalista
+   USER DROPDOWN MENU
    ============================================ */
 
 .user-dropdown-menu {
@@ -405,6 +427,7 @@
   visibility: visible;
   border: 1px solid rgba(0,0,0,0.08);
   overflow: hidden;
+  animation: fadeIn 0.2s ease;
 }
 
 .user-dropdown-header {
@@ -706,17 +729,21 @@
 @media (max-width: 768px) {
   .contact-bar {
     font-size: 12px;
-    padding: 6px 0;
+    padding: 10px 0;
   }
 
   .contact-bar .container {
-    flex-direction: column;
-    gap: 8px;
+    justify-content: center;
     padding: 0 1rem;
   }
 
-  .contact-info {
-    gap: 1rem;
+  .social-links {
+    gap: 10px;
+  }
+
+  .social-links a {
+    width: 32px;
+    height: 32px;
   }
 
   .brand-name {
@@ -728,8 +755,8 @@
   }
 
   .crown-icon {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
   }
 
   .nav-wrapper {
@@ -749,6 +776,15 @@
   .brand-name {
     font-size: 1rem;
   }
+
+  .contact-bar {
+    padding: 8px 0;
+  }
+
+  .social-links a {
+    width: 30px;
+    height: 30px;
+  }
 }
 
 /* ============================================
@@ -764,6 +800,21 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-menu {
+  animation: slideDown 0.3s ease;
 }
 
 .user-dropdown-menu {
